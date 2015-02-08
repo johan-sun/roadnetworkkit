@@ -1,0 +1,3 @@
+[submodule "src/sutil"]
+	path = src/sutil
+	url = https://github.com/syhkiller/sutil.git
