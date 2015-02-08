@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
         Segment seg(p1, p2);
         double dis;
         Point prj;
-        tie(dis, prj) = bg::distance(c, seg, bg::strategy::distance::projected_point_return_point<>()).pair;
+        tie(dis, prj) = bg::distance(c, seg, bg::strategy::distance::projected_point_return_point<>()).to_pair();
         BOOST_CHECK_EQUAL(dis, bg::distance(c, prj));
         BOOST_CHECK_EQUAL(dis, 2);
         BOOST_CHECK(bg::equals(prj, correct));
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
 
         c = {0, 2};
         correct = {1, 1};
-        tie(dis, prj) = bg::distance(c, line, bg::strategy::distance::projected_point_return_point<>()).pair;
+        tie(dis, prj) = bg::distance(c, line, bg::strategy::distance::projected_point_return_point<>()).to_pair();
         BOOST_CHECK_CLOSE(dis, bg::distance(prj, c), 1e-6);
         BOOST_CHECK_CLOSE(dis, std::sqrt(2.0), 1e-6);
         BOOST_CHECK(bg::equals(correct, prj));
@@ -119,13 +119,13 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
 
         correct = {0, 0};
         c = {0, -2};
-        tie(dis, prj) = bg::distance(c, polygon, bg::strategy::distance::projected_point_return_point<>()).pair;
+        tie(dis, prj) = bg::distance(c, polygon, bg::strategy::distance::projected_point_return_point<>()).to_pair();
         BOOST_CHECK_EQUAL(2, bg::distance(c, polygon));
         BOOST_CHECK_EQUAL(2, dis);
         BOOST_CHECK(bg::equals(correct, prj));
 
 
-        tie(dis, prj) = bg::comparable_distance(c, polygon, bg::strategy::distance::projected_point_return_point<>()).pair;
+        tie(dis, prj) = bg::comparable_distance(c, polygon, bg::strategy::distance::projected_point_return_point<>()).to_pair();
         BOOST_CHECK_EQUAL(4, dis);
         BOOST_CHECK(bg::equals(correct, prj));
     }
