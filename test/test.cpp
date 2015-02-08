@@ -158,19 +158,20 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
         );
         cout << d[end] << endl;
 
-        unordered_map<Vertex , double> ld;
+        unordered_map<Vertex , double> ld;ld.reserve(num_vertices(map.graph));
 
         double inf = numeric_limits<double>::max();
         b::lazy_associative_property_map<std::unordered_map<Vertex ,double> > distanceMap(ld, inf);
         b::timer timer;
-        b::dijkstra_shortest_paths(map.graph, start, b::weight_map(edgeWeightMap).distance_map(distanceMap));
+        b::dijkstra_shortest_paths(map.graph, start, b::weight_map(edgeWeightMap));//.distance_map(distanceMap));
         cout << timer.elapsed() << endl;
         ld.clear();
         timer.restart();
         b::dijkstra_shortest_paths_to_dest(map.graph, start, end,
-                b::distance_map(distanceMap).
-                weight_map(edgeWeightMap));
+                //b::distance_map(distanceMap).
+                b::weight_map(edgeWeightMap));
         cout << timer.elapsed() << endl;
+        cout << ld[end] << endl;
     }
 
 
