@@ -60,7 +60,15 @@ target_link_libraries(mapMatch
     ${Boost_THREAD_LIBRARY}
 )
 
-install(TARGETS mapMatch
+
+add_executable(timedPathDraw
+    src/tools/trajToShp.cpp
+)
+
+target_link_libraries(timedPathDraw
+    roadnetworkkit
+)
+install(TARGETS mapMatch timedPathDraw
     RUNTIME DESTINATION workspace
 )
 

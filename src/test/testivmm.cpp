@@ -204,10 +204,10 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
         param.beta = 5000;
         IVMM ivmm(&bjRoad, param);
 
-        //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/96894/96894-0.txt");
+        vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/96894/96894-0.txt");
         //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/21004/21004-0.txt");
         //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/102734/102734-0.txt");
-        vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/100064/100064-4.txt");
+        //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/100064/100064-4.txt");
 
         //IVMM::VVector<Candidate> candidates;
         //IVMM::VVector<double> n;

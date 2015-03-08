@@ -109,7 +109,7 @@ Path RoadMap::shortestPathBGLDijkstra(int crossA, int crossB)const{
             b::predecessor_map(b::make_lazy_property_map(pre, GraphTraits::null_vertex()))
             .distance_map(b::make_lazy_property_map(distance, numeric_limits<double>::max()))
             .weight_map(edgeWeightMap));
-    vector<int> crossIndex;
+    vector<GraphTraits::vertex_descriptor> crossIndex;
     GraphTraits::vertex_descriptor p = crossB;
     while ( p != GraphTraits::null_vertex() ){
         crossIndex.push_back(p);
@@ -216,6 +216,287 @@ Linestring geometry(PartOfRoad const& pr, RoadSegment const& r){
     return line;
 }
 
+
+
+struct GeometryAppend : public boost::static_visitor<void> {
+
+    GeometryAppend(RoadMap const& m, Linestring & l):map(m),line(l){}
+
+    void operator()(ProjectPoint  const& p){
+        line.push_back(p.geometry);
+    }
+
+    void operator()(ARoadSegment const& r){
+        RoadSegment const& rs = map.roadsegment(r.roadsegmentIndex);
+        Linestring l = rs.geometry;
+        if ( r.startCross ==  rs.endCrossIndex){
+            b::reverse(l);
+        }
+        bg::append(line, l);
+    }
+
+    void operator()(PartOfRoad const& pr){
+        bg::append(line, geometry(pr, map.roadsegment(pr.roadsegmentIndex)));
+    }
+
+    RoadMap const& map;
+    Linestring & line;
+};
+
+Linestring geometry(Path const& path, RoadMap const& m){
+    Linestring line;
+    GeometryAppend appender(m, line);
+    for(auto& v : path.entities){
+        boost::apply_visitor(appender, v);
+    }
+    return line;
+}
+
+ProjectPoint RoadMap::nearestProject(Point const &p) const {
+
+    int roadIdx = roadsegmentRTree.qbegin(bgi::nearest(p, 1))->second;
+    double r = bg::distance(p, roadsegment(roadIdx).geometry);
+    vector<int> ret = queryRoad(p, r);
+    int min = ret.empty() ? roadIdx: ret[0];
+    return makeProjectPoint(p, roadsegment(min));
+}
+
+struct AStarNode{
+    double g;
+    double h;
+    int cross;
+    AStarNode(int cross, double g, double h):g(g),h(h),cross(cross){}
+    bool operator<(AStarNode const& otr)const{
+        return (g+h) > (otr.g + otr.h);
+    }
+};
+
+template<typename HF>
+vector<int>  
+shortestPathImple(
+    RoadMap const& map,
+    vector<int> const& init, 
+    vector<double> const& initG,
+    unordered_set<int> const& finishSet,
+    HF hf){
+
+    vector<int>  crossIndex;
+    typedef b::heap::fibonacci_heap<AStarNode> Heap;
+    Heap open;
+    unordered_set<RoadMap::GraphTraits::vertex_descriptor> close;
+    unordered_map<RoadMap::GraphTraits::vertex_descriptor, RoadMap::GraphTraits::vertex_descriptor> pre;
+    unordered_map<RoadMap::GraphTraits::vertex_descriptor, Heap::handle_type> savedHandle;
+    for(int i = 0; i < init.size(); ++i){
+        savedHandle[init[i]] = open.push({init[i], initG[i], 0.0});
+        pre[init[i]] = RoadMap::GraphTraits::null_vertex();
+    }
+    while(!open.empty()){
+        AStarNode top = open.top();
+        open.pop();
+        if ( finishSet.count(top.cross)){
+            RoadMap::GraphTraits::vertex_descriptor p = top.cross;
+            while ( p != RoadMap::GraphTraits::null_vertex() ){
+                crossIndex.push_back(p);
+                p = pre[p];
+            }
+
+            b::reverse(crossIndex);
+            return crossIndex;
+        }
+
+        close.insert(top.cross);
+        for(auto iterPair = b::out_edges(top.cross, map.graph); iterPair.first != iterPair.second; ++iterPair.first){
+            RoadMap::GraphTraits::edge_descriptor edge = *iterPair.first;
+            RoadMap::GraphTraits::vertex_descriptor t = b::target(edge, map.graph);
+            if ( close.count(t) ){
+                continue;
+            }
+
+            double g = get(map.edgeWeightMap, edge) + top.g;
+            double h = hf(t);
+            //double h = bg::distance(cross(t), cross(crossB));
+            auto it = savedHandle.find(t);
+            if ( it == savedHandle.end()){
+                savedHandle[t] = open.push({(int)t,g,h});
+                pre[t] = top.cross;
+            }else{
+                AStarNode& node = *(it->second);
+                if ( g + h < node.g + node.h ){
+                    AStarNode newNode{(int)t, g, h};
+                    pre[t] = top.cross;
+                    open.update_lazy(it->second, newNode);
+                }
+            }
+        }
+    }
+
+    return crossIndex;
+}
+
+Path RoadMap::shortestPathAStar(int crossA, int crossB)const{
+    Path path;
+    if ( crossA == crossB ){
+        path.entities.push_back(makeProjectPointForCross(cross(crossA)));
+        return path;
+    }
+    vector<int> crossIndex = 
+        shortestPathImple(*this, {crossA}, {0.0}, {crossB}, 
+                [&](int cross){
+                    return bg::distance(this->cross(cross), this->cross(crossB));
+                });
+    for(int i = 1; i < crossIndex.size(); ++i){
+        auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+        assert(findedEdge.second);
+        ARoadSegment ars;
+        ars.startCross = crossIndex[i-1];
+        ars.endCross = crossIndex[i];
+        ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+        ars.length = get(edgeWeightMap, findedEdge.first);
+        path.entities.push_back(ars);
+    }
+    return path;
+    /*
+    typedef b::heap::fibonacci_heap<AStarNode> Heap;
+    Heap open;
+    unordered_set<GraphTraits::vertex_descriptor> close;
+    unordered_map<GraphTraits::vertex_descriptor, GraphTraits::vertex_descriptor> pre;
+    unordered_map<GraphTraits::vertex_descriptor, Heap::handle_type> savedHandle;
+    savedHandle[crossA] = open.push({crossA, 0.0, 0.0});
+    pre[crossA] = GraphTraits::null_vertex();
+    while(!open.empty()){
+        AStarNode top = open.top();
+        open.pop();
+        if ( top.cross == crossB ){
+            vector<int> crossIndex;
+            GraphTraits::vertex_descriptor p = crossB;
+            while ( p != GraphTraits::null_vertex() ){
+                crossIndex.push_back(p);
+                p = pre[p];
+            }
+
+            b::reverse(crossIndex);
+            for(int i = 1; i < crossIndex.size(); ++i){
+                auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+                assert(findedEdge.second);
+                ARoadSegment ars;
+                ars.startCross = crossIndex[i-1];
+                ars.endCross = crossIndex[i];
+                ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+                ars.length = get(edgeWeightMap, findedEdge.first);
+                path.entities.push_back(ars);
+            }
+            return path;
+        }
+
+        close.insert(top.cross);
+        for(auto iterPair = b::out_edges(top.cross, graph); iterPair.first != iterPair.second; ++iterPair.first){
+            GraphTraits::edge_descriptor edge = *iterPair.first;
+            int t = b::target(edge, graph);
+            if ( close.count(t) ){
+                continue;
+            }
+
+            double g = get(edgeWeightMap, edge) + top.g;
+            double h = bg::distance(cross(t), cross(crossB));
+            auto it = savedHandle.find(t);
+            if ( it == savedHandle.end()){
+                savedHandle[t] = open.push({t,g,h});
+                pre[t] = top.cross;
+            }else{
+                AStarNode& node = *(it->second);
+                if ( g + h < node.g + node.h ){
+                    AStarNode newNode{t, g, h};
+                    pre[t] = top.cross;
+                    open.update_lazy(it->second, newNode);
+                }
+            }
+        }
+    }
+    return path;*/
+}
+
+Path RoadMap::shortestPathDijkstra(int crossA, int crossB)const{
+    Path path;
+    if ( crossA == crossB ){
+        path.entities.push_back(makeProjectPointForCross(cross(crossA)));
+        return path;
+    }
+
+    vector<int> crossIndex = 
+        shortestPathImple(*this, {crossA}, {0.0}, {crossB}, [](int){ return 0.0; });
+    for(int i = 1; i < crossIndex.size(); ++i){
+        auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+        assert(findedEdge.second);
+        ARoadSegment ars;
+        ars.startCross = crossIndex[i-1];
+        ars.endCross = crossIndex[i];
+        ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+        ars.length = get(edgeWeightMap, findedEdge.first);
+        path.entities.push_back(ars);
+    }
+    return path;
+
+    /*
+    typedef b::heap::fibonacci_heap<AStarNode> Heap;
+    Heap open;
+    unordered_set<GraphTraits::vertex_descriptor> close;
+    unordered_map<GraphTraits::vertex_descriptor, GraphTraits::vertex_descriptor> pre;
+    unordered_map<GraphTraits::vertex_descriptor, Heap::handle_type> savedHandle;
+    savedHandle[crossA] = open.push({crossA, 0.0, 0.0});
+    pre[crossA] = GraphTraits::null_vertex();
+    while(!open.empty()){
+        AStarNode top = open.top();
+        open.pop();
+        if ( top.cross == crossB ){
+            vector<int> crossIndex;
+            GraphTraits::vertex_descriptor p = crossB;
+            while ( p != GraphTraits::null_vertex() ){
+                crossIndex.push_back(p);
+                p = pre[p];
+            }
+
+            b::reverse(crossIndex);
+            for(int i = 1; i < crossIndex.size(); ++i){
+                auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+                assert(findedEdge.second);
+                ARoadSegment ars;
+                ars.startCross = crossIndex[i-1];
+                ars.endCross = crossIndex[i];
+                ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+                ars.length = get(edgeWeightMap, findedEdge.first);
+                path.entities.push_back(ars);
+            }
+            return path;
+        }
+
+        close.insert(top.cross);
+        for(auto iterPair = b::out_edges(top.cross, graph); iterPair.first != iterPair.second; ++iterPair.first){
+            GraphTraits::edge_descriptor edge = *iterPair.first;
+            int t = b::target(edge, graph);
+            if ( close.count(t) ){
+                continue;
+            }
+
+            double g = get(edgeWeightMap, edge) + top.g;
+            double h = 0.0;
+            //double h = bg::distance(cross(t), cross(crossB));
+            auto it = savedHandle.find(t);
+            if ( it == savedHandle.end()){
+                savedHandle[t] = open.push({t,g,h});
+                pre[t] = top.cross;
+            }else{
+                AStarNode& node = *(it->second);
+                if ( g + h < node.g + node.h ){
+                    AStarNode newNode{t, g, h};
+                    pre[t] = top.cross;
+                    open.update_lazy(it->second, newNode);
+                }
+            }
+        }
+    }*/
+    return path;
+}
+
 static bool startCanGoToEndDirectly(ProjectPoint const& start, ProjectPoint const& end, RoadSegment const& sameRoad){
     if (sameRoad.direction == Direction::Bidirection){
         return true;
@@ -227,7 +508,8 @@ static bool startCanGoToEndDirectly(ProjectPoint const& start, ProjectPoint cons
     }
 }
 
-static pair<int, int> nearbyCrossOnSameRoad(ProjectPoint const& p1, ProjectPoint const& p2, RoadSegment const& r){
+static pair<int, int> 
+nearbyCrossOnSameRoad(ProjectPoint const& p1, ProjectPoint const& p2, RoadSegment const& r){
     if ( p1.param < p2.param ){
         assert(r.direction == Direction::Backward );
         return { r.startCrossIndex, r.endCrossIndex };
@@ -301,7 +583,7 @@ Path RoadMap::shortestPath(ProjectPoint const& start, ProjectPoint const& end)co
         }else{//different road
             RoadSegment const& rs = roadsegment(start.index);
             RoadSegment const& re = roadsegment(end.index);
-            Path sPath;
+            Path sPath;/*
             double shortest = numeric_limits<double>::max();
             vector<int> startPossibleCross = possibleStartNearbyCross(start, rs);
             vector<int> endPossibleCross = possibleEndNearbyCross(end, re);
@@ -319,6 +601,47 @@ Path RoadMap::shortestPath(ProjectPoint const& start, ProjectPoint const& end)co
                         sPath = std::move(rp);
                     }
                 }
+            }*/
+            vector<int> startPossibleCross = possibleStartNearbyCross(start, rs);
+            vector<int> endPossibleCross = possibleEndNearbyCross(end, re);
+            vector<PartOfRoad> partOfRoads;
+            vector<PartOfRoad> partOfRoade;
+            vector<double> initG;
+            for(auto v : startPossibleCross){
+                partOfRoads.push_back(makePartOfRoad(start ,cross(v), roadsegment(start.index)));
+                initG.push_back(partOfRoads.back().length);
+            }
+            unordered_map<int, double> endG;
+            for(auto v : endPossibleCross){
+                partOfRoade.push_back(makePartOfRoad(cross(v), end, roadsegment(end.index)));
+                endG[v] = partOfRoade.back().length;
+            }
+
+            vector<int> crossIndex = 
+                shortestPathImple(*this, startPossibleCross, initG, {endPossibleCross.begin(), endPossibleCross.end()},
+                        [&](int v){
+                            if ( endG.count(v) ){
+                                return endG[v];
+                            }
+                            if ( this->shortestPathStrategy == RoadMap::Dijkstra ){
+                                return 0.0;
+                            }else{
+                                return bg::distance(this->cross(v), end);
+                            }
+                        });
+            if ( !crossIndex.empty() ){
+                for(int i = 1; i < crossIndex.size(); ++i){
+                    auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+                    assert(findedEdge.second);
+                    ARoadSegment ars;
+                    ars.startCross = crossIndex[i-1];
+                    ars.endCross = crossIndex[i];
+                    ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+                    ars.length = get(edgeWeightMap, findedEdge.first);
+                    sPath.entities.push_back(ars);
+                }
+                sPath.entities.push_front(partOfRoads[b::find<b::return_begin_found>(startPossibleCross, crossIndex.front()).size()]);
+                sPath.entities.push_back(partOfRoade[b::find<b::return_begin_found>(endPossibleCross, crossIndex.back()).size()]);
             }
             return sPath;
         }
@@ -336,7 +659,14 @@ Path RoadMap::shortestPath(ProjectPoint const& start, int end)const{
     }else{
         RoadSegment const& rs = roadsegment(start.index);
         vector<int> startPossibleCross = possibleStartNearbyCross(start, rs);
+        vector<PartOfRoad> partOfRoads;
+        vector<double> initG;
+        for(auto v : startPossibleCross){
+            partOfRoads.push_back(makePartOfRoad(start, cross(v), roadsegment(start.index)));
+            initG.push_back(partOfRoads.back().length);
+        }
         Path sPath;
+        /*
         for(int sc : startPossibleCross){
             Path p;
             Path bodyPath = shortestPath(sc, end);
@@ -348,17 +678,40 @@ Path RoadMap::shortestPath(ProjectPoint const& start, int end)const{
             if ( p.totalLength() < sPath.totalLength() ){
                 sPath = std::move(p);
             }
+        }*/
+        vector<int> crossIndex = 
+                shortestPathImple(*this, startPossibleCross, initG, {end},
+                        [&](int v){
+                            if ( this->shortestPathStrategy == RoadMap::Dijkstra ){
+                                return 0.0;
+                            }else{
+                                return bg::distance(this->cross(v), this->cross(end));
+                            }
+                        });
+        if ( !crossIndex.empty() ){
+            for(int i = 1; i < crossIndex.size(); ++i){
+                auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+                assert(findedEdge.second);
+                ARoadSegment ars;
+                ars.startCross = crossIndex[i-1];
+                ars.endCross = crossIndex[i];
+                ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+                ars.length = get(edgeWeightMap, findedEdge.first);
+                sPath.entities.push_back(ars);
+            }
+            sPath.entities.push_front(partOfRoads[b::find<b::return_begin_found>(startPossibleCross, crossIndex.front()).size()]);
         }
         return sPath;
     }
 }
+
 Path RoadMap::shortestPath(int start, ProjectPoint const& end)const{
     if ( end.type == ProjectPoint::OnCross ){
         return shortestPath(start, end.index);
     }else{
         RoadSegment const& re = roadsegment(end.index);
-        vector<int> endPossibleCross = possibleEndNearbyCross(end, re);
         Path sPath;
+        /*
         for(int ec : endPossibleCross){
             Path p;
             Path bodyPath = shortestPath(start, ec);
@@ -370,192 +723,39 @@ Path RoadMap::shortestPath(int start, ProjectPoint const& end)const{
             if ( p.totalLength() < sPath.totalLength() ){
                 sPath = std::move(p);
             }
+        }*/
+        vector<int> endPossibleCross = possibleEndNearbyCross(end, re);
+        vector<PartOfRoad> partOfRoade;
+        unordered_map<int, double> endG;
+        for(auto v : endPossibleCross){
+            partOfRoade.push_back(makePartOfRoad(cross(v), end, roadsegment(end.index)));
+            endG[v] = partOfRoade.back().length;
+        }
+        vector<int> crossIndex = 
+            shortestPathImple(*this, {start}, {0.0}, {endPossibleCross.begin(), endPossibleCross.end()},
+                [&](int v){
+                    if ( endG.count(v) ){
+                        return endG[v];
+                    }
+                    if ( this->shortestPathStrategy == RoadMap::Dijkstra ){
+                        return 0.0;
+                    }else{
+                        return bg::distance(this->cross(v), end);
+                    }
+                });
+        if ( !crossIndex.empty() ){
+            for(int i = 1; i < crossIndex.size(); ++i){
+                auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
+                assert(findedEdge.second);
+                ARoadSegment ars;
+                ars.startCross = crossIndex[i-1];
+                ars.endCross = crossIndex[i];
+                ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
+                ars.length = get(edgeWeightMap, findedEdge.first);
+                sPath.entities.push_back(ars);
+            }
+            sPath.entities.push_back(makePartOfRoad(cross(crossIndex.back()), end, roadsegment(end.index)));
         }
         return sPath;
     }
-}
-
-struct GeometryAppend : public boost::static_visitor<void> {
-
-    GeometryAppend(RoadMap const& m, Linestring & l):map(m),line(l){}
-
-    void operator()(ProjectPoint  const& p){
-        line.push_back(p.geometry);
-    }
-
-    void operator()(ARoadSegment const& r){
-        RoadSegment const& rs = map.roadsegment(r.roadsegmentIndex);
-        Linestring l = rs.geometry;
-        if ( r.startCross ==  rs.endCrossIndex){
-            b::reverse(l);
-        }
-        bg::append(line, l);
-    }
-
-    void operator()(PartOfRoad const& pr){
-        bg::append(line, geometry(pr, map.roadsegment(pr.roadsegmentIndex)));
-    }
-
-    RoadMap const& map;
-    Linestring & line;
-};
-
-Linestring geometry(Path const& path, RoadMap const& m){
-    Linestring line;
-    GeometryAppend appender(m, line);
-    for(auto& v : path.entities){
-        boost::apply_visitor(appender, v);
-    }
-    return line;
-}
-
-ProjectPoint RoadMap::nearestProject(Point const &p) const {
-
-    int roadIdx = roadsegmentRTree.qbegin(bgi::nearest(p, 1))->second;
-    double r = bg::distance(p, roadsegment(roadIdx).geometry);
-    vector<int> ret = queryRoad(p, r);
-    int min = ret.empty() ? roadIdx: ret[0];
-    return makeProjectPoint(p, roadsegment(min));
-}
-
-struct AStarNode{
-    double g;
-    double h;
-    int cross;
-    AStarNode(int cross, double g, double h):g(g),h(h),cross(cross){}
-    bool operator<(AStarNode const& otr)const{
-        return (g+h) > (otr.g + otr.h);
-    }
-};
-
-Path RoadMap::shortestPathAStar(int crossA, int crossB)const{
-    Path path;
-    if ( crossA == crossB ){
-        path.entities.push_back(makeProjectPointForCross(cross(crossA)));
-        return path;
-    }
-    typedef b::heap::fibonacci_heap<AStarNode> Heap;
-    Heap open;
-    unordered_set<GraphTraits::vertex_descriptor> close;
-    unordered_map<GraphTraits::vertex_descriptor, GraphTraits::vertex_descriptor> pre;
-    unordered_map<GraphTraits::vertex_descriptor, Heap::handle_type> savedHandle;
-    savedHandle[crossA] = open.push({crossA, 0.0, 0.0});
-    pre[crossA] = GraphTraits::null_vertex();
-    while(!open.empty()){
-        AStarNode top = open.top();
-        open.pop();
-        if ( top.cross == crossB ){
-            vector<int> crossIndex;
-            GraphTraits::vertex_descriptor p = crossB;
-            while ( p != GraphTraits::null_vertex() ){
-                crossIndex.push_back(p);
-                p = pre[p];
-            }
-
-            b::reverse(crossIndex);
-            for(int i = 1; i < crossIndex.size(); ++i){
-                auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
-                assert(findedEdge.second);
-                ARoadSegment ars;
-                ars.startCross = crossIndex[i-1];
-                ars.endCross = crossIndex[i];
-                ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
-                ars.length = get(edgeWeightMap, findedEdge.first);
-                path.entities.push_back(ars);
-            }
-            return path;
-        }
-
-        close.insert(top.cross);
-        for(auto iterPair = b::out_edges(top.cross, graph); iterPair.first != iterPair.second; ++iterPair.first){
-            GraphTraits::edge_descriptor edge = *iterPair.first;
-            int t = b::target(edge, graph);
-            if ( close.count(t) ){
-                continue;
-            }
-
-            double g = get(edgeWeightMap, edge) + top.g;
-            double h = bg::distance(cross(t), cross(crossB));
-            auto it = savedHandle.find(t);
-            if ( it == savedHandle.end()){
-                savedHandle[t] = open.push({t,g,h});
-                pre[t] = top.cross;
-            }else{
-                AStarNode& node = *(it->second);
-                if ( g + h < node.g + node.h ){
-                    AStarNode newNode{t, g, h};
-                    pre[t] = top.cross;
-                    open.update_lazy(it->second, newNode);
-                }
-            }
-        }
-    }
-    return path;
-}
-
-Path RoadMap::shortestPathDijkstra(int crossA, int crossB)const{
-    Path path;
-    if ( crossA == crossB ){
-        path.entities.push_back(makeProjectPointForCross(cross(crossA)));
-        return path;
-    }
-    typedef b::heap::fibonacci_heap<AStarNode> Heap;
-    Heap open;
-    unordered_set<GraphTraits::vertex_descriptor> close;
-    unordered_map<GraphTraits::vertex_descriptor, GraphTraits::vertex_descriptor> pre;
-    unordered_map<GraphTraits::vertex_descriptor, Heap::handle_type> savedHandle;
-    savedHandle[crossA] = open.push({crossA, 0.0, 0.0});
-    pre[crossA] = GraphTraits::null_vertex();
-    while(!open.empty()){
-        AStarNode top = open.top();
-        open.pop();
-        if ( top.cross == crossB ){
-            vector<int> crossIndex;
-            GraphTraits::vertex_descriptor p = crossB;
-            while ( p != GraphTraits::null_vertex() ){
-                crossIndex.push_back(p);
-                p = pre[p];
-            }
-
-            b::reverse(crossIndex);
-            for(int i = 1; i < crossIndex.size(); ++i){
-                auto findedEdge = b::edge(crossIndex[i-1], crossIndex[i], graph);
-                assert(findedEdge.second);
-                ARoadSegment ars;
-                ars.startCross = crossIndex[i-1];
-                ars.endCross = crossIndex[i];
-                ars.roadsegmentIndex = get(roadIndexOfEdgeTag, graph, findedEdge.first);
-                ars.length = get(edgeWeightMap, findedEdge.first);
-                path.entities.push_back(ars);
-            }
-            return path;
-        }
-
-        close.insert(top.cross);
-        for(auto iterPair = b::out_edges(top.cross, graph); iterPair.first != iterPair.second; ++iterPair.first){
-            GraphTraits::edge_descriptor edge = *iterPair.first;
-            int t = b::target(edge, graph);
-            if ( close.count(t) ){
-                continue;
-            }
-
-            double g = get(edgeWeightMap, edge) + top.g;
-            double h = 0.0;
-            //double h = bg::distance(cross(t), cross(crossB));
-            auto it = savedHandle.find(t);
-            if ( it == savedHandle.end()){
-                savedHandle[t] = open.push({t,g,h});
-                pre[t] = top.cross;
-            }else{
-                AStarNode& node = *(it->second);
-                if ( g + h < node.g + node.h ){
-                    AStarNode newNode{t, g, h};
-                    pre[t] = top.cross;
-                    open.update_lazy(it->second, newNode);
-                }
-            }
-        }
-    }
-
-    return path;
 }

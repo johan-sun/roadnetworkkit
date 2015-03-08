@@ -74,7 +74,6 @@ struct Path{
 class RoadMap : public Map{
 public:
     enum ShortestPathStrategy{
-        BGLDijkstra,
         Dijkstra,
         AStar
     };
@@ -105,9 +104,7 @@ public:
     std::vector<int> queryRoad(Point const& p, double radious)const;
 
     inline Path shortestPath(int crossA, int crossB)const{
-        if ( shortestPathStrategy == BGLDijkstra ){
-            return shortestPathBGLDijkstra(crossA, crossB);
-        }else if ( shortestPathStrategy == Dijkstra ){
+        if ( shortestPathStrategy == Dijkstra ){
             return shortestPathDijkstra(crossA, crossB);
         }else{
             return shortestPathAStar(crossA, crossB);
@@ -116,6 +113,7 @@ public:
     Path shortestPath(ProjectPoint const& start, ProjectPoint const& end)const;
     Path shortestPath(ProjectPoint const& start, int end)const;
     Path shortestPath(int start, ProjectPoint const& end)const;
+
     Path shortestPathAStar(int crossA, int crossB)const;
     Path shortestPathDijkstra(int crossA, int crossB)const;
     Path shortestPathBGLDijkstra(int crossA, int crossB)const;

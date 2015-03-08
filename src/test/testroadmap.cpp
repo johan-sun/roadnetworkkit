@@ -116,6 +116,7 @@ BOOST_AUTO_TEST_SUITE(roadmap_test)
     }
 
     BOOST_AUTO_TEST_CASE(shortest_path){
+    /*
         boost::timer astar, dijkstra, bglDijstra;
         int a = 63151, b = 62738;
         Path bglPath, astarPath, dijkstraPath;
@@ -128,7 +129,16 @@ BOOST_AUTO_TEST_SUITE(roadmap_test)
         dijkstra.restart();
         dijkstraPath = bjRoad.shortestPathDijkstra(a, b);
         cout << "dijkstra " << dijkstra.elapsed() << "s" << endl;
-        cout << bglPath.totalLength() << " " << astarPath.totalLength() << " " << dijkstraPath.totalLength() << endl;
+        cout << bglPath.totalLength() << " " << astarPath.totalLength() << " " << dijkstraPath.totalLength() << endl;*/
+        double x1,y1;
+        double x2,y2;
+        while ( cin >> x1 >> y1 >> x2 >> y2 ){
+            ProjectPoint p1 = bjRoad.nearestProject({x1, y1});
+            ProjectPoint p2 = bjRoad.nearestProject({x2, y2});
+            Path path = bjRoad.shortestPath(p1, p2);
+            drawPath("SHORTEST_PATH", path);
+            cout << path.totalLength() << endl;
+        }
     }
 
 BOOST_AUTO_TEST_SUITE_END()
