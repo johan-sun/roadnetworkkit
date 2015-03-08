@@ -235,15 +235,12 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
         for(auto& r : ranges){
             cout << r.second - r.first << endl;
         }
-        vector<TimedCrossIndex> timedPath = estimateTime(log, result, ranges[0], bjRoad);
-        if ( !timedPath.empty()){
-            drawTimedCross("TIMED_CROSS_0", timedPath);
-            drawSegmentCost("SEGMENT_COST_0", timedPath);
-        }
-        timedPath = estimateTime(log, result, ranges[1], bjRoad);
-        if ( !timedPath.empty()){
-            drawTimedCross("TIMED_CROSS_1", timedPath);
-            drawSegmentCost("SEGMENT_COST_1", timedPath);
+        for(int i = 0; i < ranges.size(); ++i){
+            vector<TimedCrossIndex> timedPath = estimateTime(log, result, ranges[i], bjRoad);
+            if ( !timedPath.empty()){
+                drawTimedCross(("TIMED_CROSS_" + to_string(i)).c_str(), timedPath);
+                drawSegmentCost(("SEGMENT_COST_" + to_string(i)).c_str(), timedPath);
+            }
         }
     }
 

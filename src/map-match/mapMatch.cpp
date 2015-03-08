@@ -185,14 +185,13 @@ void writer(lf::queue<Output*>& outputQueue,
         RoadMap const& bjRoadMap, 
         atomic_bool const& mapMatchDone){
     auto doWith = [&bjRoadMap](Output * poutput){
-        time_t t = time(NULL);
         if ( poutput->type == Output::GpsTooLessOrLoadFail)
-            cerr << put_time(localtime(&t), "%Y-%m-%d %H:%M:%S ") << "[" << poutput->pinput->line << "]" << " gps too less or load fail:" << poutput->pinput->input << "\n";
+            cerr << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " gps too less or load fail:" << poutput->pinput->input << "\n";
         else if ( poutput->type == Output::MapMatchFail )
-            cerr << put_time(localtime(&t), "%Y-%m-%d %H:%M:%S ") << "[" << poutput->pinput->line << "]" << " map match fail:" << poutput->pinput->input << "\n";
+            cerr << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " map match fail:" << poutput->pinput->input << "\n";
         else{
             doOutput(poutput, bjRoadMap);
-            cout << put_time(localtime(&t), "%Y-%m-%d %H:%M:%S ") << "[" << poutput->pinput->line << "]" << " finished in "<< poutput->cost << "s:" << poutput->pinput->input << "\n";
+            cout << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " finished in "<< poutput->cost << "s:" << poutput->pinput->input << "\n";
         }
         delete poutput->pinput;
         delete poutput;
@@ -350,7 +349,8 @@ int main(int argc, char *argv[])
     }
 
     time_t t = time(NULL);
-    cout << put_time(localtime(&t), "%Y-%m-%d %H:%M:%S") << " SHP:" << roadShp << endl;
+    cout.imbue(locale(cout.getloc(), new b::posix_time::time_input_facet("%Y-%m-%d %H:%M:%S")));
+    cout << b::posix_time::second_clock::local_time() << " SHP:" << roadShp << endl;
     cout << "IVMM.projectDistMean = " << param.projectDistMean << endl;
     cout << "IVMM.projectDistStddev = " << param.projectDistStddev << endl;
     cout << "IVMM.candidateQueryRadious = " << param.candidateQueryRadious << endl;
