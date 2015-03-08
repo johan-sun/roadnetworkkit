@@ -1,6 +1,12 @@
 #ifndef  GEOMERTY_H
 #define  GEOMERTY_H
+#include  <boost/geometry.hpp>
+#include  <boost/geometry/geometries/register/point.hpp>
+#include  <boost/geometry/index/rtree.hpp>
 #include  <boost/geometry/geometries/point_xy.hpp>
+#include  <boost/geometry/geometries/segment.hpp>
+#include  <boost/geometry/geometries/linestring.hpp>
+#include  <boost/geometry/geometries/box.hpp>
 #include  <boost/geometry/geometries/adapted/c_array.hpp>
 namespace b = boost;
 namespace bg = boost::geometry;

@@ -1,7 +1,7 @@
 #ifndef  BJ_ROAD_EPSG3785_H
 #define  BJ_ROAD_EPSG3785_H
 #include  <string>
-#include    "roadmap.h"
+#include    "generalmap.h"
 struct BJRoadEpsg3785CrossIDChecker{
     const static int FrontCrossIDField = 18;
     const static int BackCrossIDField = 19;

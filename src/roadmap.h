@@ -1,443 +1,129 @@
-#ifndef  ROADMAP_H
-#define  ROADMAP_H
-//auto-include {{{
-#include  <utility>
-#include  <boost/geometry.hpp> 
-#include  <boost/geometry/index/rtree.hpp>
-#include  <boost/algorithm/string.hpp>
-#include  <boost/graph/adjacency_list.hpp>
-#include  <boost/property_tree/ptree.hpp>
-#include  <boost/any.hpp>
-#include  <functional>
-#include <string>
+#ifndef ROADMAP_H
+#define ROADMAP_H
 #include <vector>
-#include  <iostream>
-#include <shapefil.h>
-#include <type_traits>
-#include <unordered_map>
-#include    "geomerty.h"
-#include    "traits.hpp"
-//}}}
+#include <list>
+#include <boost/variant.hpp>
+#include <boost/geometry/geometries/register/point.hpp>
+#include "generalmap.h"
+#include "map_graph_property.hpp"
+#include "geomerty.h"
 
-
-namespace bgi = boost::geometry::index;
-namespace pt = boost::property_tree;
-
-/// \brief cross in map
-struct Cross{
-    int index;
+struct ProjectPoint{
+    enum Type{
+        OnCross,
+        OnRoad
+    };
     Point geometry;
-    pt::ptree properties;///< user stored properties
-};
-
-
-/// \file
-/// \brief direction of road segment
-enum  Direction{
-    Forward = 1,///< r.s->r.e
-    Backward = 2,///< r.e->r.s
-    Bidirection = 3,///< both r.s->r.e and r.e->r.s
-};
-
-/// \file
-/// \brief cross posistion in road segment
-enum CrossPosInRoad{
-    Front,///< point is r.s
-    Back///< point is r.e
-};
-
-/// \brief road segment
-struct RoadSegment{
+    Type type;
     int index;
-    int startCrossIndex;
-    int endCrossIndex;
-    Direction direction;
-    Linestring geometry;
-    pt::ptree properties;///< user stored properties
+    double param;
 };
 
-/// \brief 通过几何来判断顶点是否添加
-/// 
-/// Checker通过 crossIsNew 判断路口是否是新的,
-/// 若路口是新的则会通过 storeIndex 存储该点对应的索引
-/// 若路口已经添加过,则通过 getIndex 获取路口的索引<br/>
-/// 默认路口检查器
-struct GeometryChecker{
-private:
-    struct PointHash{
-        size_t operator()(Point const& p)const{
-            std::hash<double> hasher;
-            return hasher(p.x()) ^ ( hasher(p.y()) << 1 );
-        }
-    };
-    struct PointEqual{
-        bool operator()(Point const& a, Point const& b)const{
-            return a.x() == b.x() && a.y() == b.y();
-        }
-    };
-    std::unordered_map<Point, int, PointHash, PointEqual> savedPoint;
+BOOST_GEOMETRY_REGISTER_POINT_2D_GET_SET(ProjectPoint, double, bg::cs::cartesian, geometry.x, geometry.y, geometry.x, geometry.y);
+
+ProjectPoint makeProjectPoint(Point const& point, RoadSegment const& r);
+inline ProjectPoint makeProjectPointForCross(Cross const& c){
+    ProjectPoint p;
+    p.type = ProjectPoint::OnCross;
+    p.geometry = c.geometry;
+    p.index = c.index;
+    p.param = 0;
+    return p;
+}
+
+template<typename P>
+ProjectPoint makeProjectPoint(P const& point, RoadSegment const& r){
+    Point p;
+    bg::convert(point, p);
+    return makeProjectPoint(p, r);
+}
+
+struct PartOfRoad{
+    double length;
+    ProjectPoint start;
+    ProjectPoint end;
+    int roadsegmentIndex;
+};
+
+PartOfRoad makePartOfRoad(Point const& start, Point const& end, RoadSegment const& r);
+template<typename P1, typename P2>
+PartOfRoad makePartOfRoad(P1 const& start, P2 const& end, RoadSegment const& r){
+    Point s;
+    Point e;
+    bg::convert(start, s);
+    bg::convert(end, e);
+    return makePartOfRoad(s, e, r);
+}
+Linestring geometry(PartOfRoad const& pr, RoadSegment const& r);
+
+struct ARoadSegment{
+    int startCross;
+    int endCross;
+    int roadsegmentIndex;
+    double length;
+};
+
+struct Path{
+    std::list<boost::variant<ARoadSegment,PartOfRoad, ProjectPoint> > entities;
+    double totalLength()const;
+    inline bool valid()const{
+        return !entities.empty();
+    }
+};
+
+class RoadMap : public Map{
 public:
+    enum ShortestPathStrategy{
+        BGLDijkstra,
+        Dijkstra,
+        AStar
+    };
 
-    /// \brief 判断是否是新添加路口
-    /// \param[in] pos 路口在路段Linestring的位置
-    /// \param[in] p   路口的几何点
-    /// \param[in] r   路口所连的路段
-    /// \param[in] handle DBFHandle
-    /// \param[in] roadIndex 道路对应的索引
-    /// \return  是否是未添加索引的点
-    inline bool crossIsNew(CrossPosInRoad pos, Point const& p, RoadSegment const& r, DBFHandle handle, int roadIndex){
-        return savedPoint.count(p) == 0;
-    }
+    RoadMap():edgeWeightMap(*this, "GEO_LENGTH"),shortestPathStrategy(AStar){}
 
-    /// \brief 存储道路索引
-    /// \param[in] pos 路口在路段Linestring的位置
-    /// \param[in] p   路口的几何点
-    /// \param[in] crossIndex 存储路口的索引
-    /// \param[in] r   路口所连的路段
-    /// \param[in] handle DBFHandle
-    /// \param[in] roadIndex 道路对应的索引
-    inline void storeIndex(CrossPosInRoad pos, Point const& p, int crossIndex, RoadSegment const& r, DBFHandle handle, int roadIndex){
-        savedPoint[p] = crossIndex;
-
-    }
-
-    /// \brief 获取路口的索引
-    /// \param[in] pos 路口在路段Linestring的位置
-    /// \param[in] p   路口的几何点
-    /// \param[in] r   路口所连的路段
-    /// \param[in] handle DBFHandle
-    /// \param[in] roadIndex 道路对应的索引
-    /// \return 路口的索引
-    inline int getIndex(CrossPosInRoad pos, Point const& p, RoadSegment const& r, DBFHandle handle, int roadIndex){
-        return savedPoint[p];
-    }
-};
-
-/// \brief 什么也不做的属性选取器
-///
-/// 什么也不做的属性选取器,总是返回双向道路<br/>
-/// 默认属性选取器
-struct NoPropertiesPicker{
-    /// \brief 选取道路的额外属性
-    /// \param[out] properties 存储额外的道路属性
-    /// \param[in] handle DBFHandle
-    /// \param[in] roadIndex 道路索引
-    /// \return Direction 道路的方向
-    inline Direction pickRoadsegment(pt::ptree & properties, DBFHandle handle, int roadIndex){return Bidirection;}
-
-    /// \brief 选取路口的额外属性
-    /// \param[out] properties 存储额外的路口属性
-    /// \param[in] pos 路口对应在道路的位置
-    /// \param[in] handle DBFHandle
-    /// \param[in] roadIndex 道路的索引
-    inline void pickCross(pt::ptree & properties, CrossPosInRoad pos,  DBFHandle handle, int roadIndex){}
-};
-
-struct RoadIndexCrossIndexPair : std::pair<int, int>{
-    RoadIndexCrossIndexPair()=default;
-    RoadIndexCrossIndexPair(int r, int c){
-        first = r;
-        second = c;
-    }
-    int roadIndex()const{
-        return this->first;
-    }
-    int crossIndex()const{
-        return this->second;
-    }
-    void setRoadIndex(int idx){
-        this->first = idx;
-    }
-    void setCrossIndex(int idx){
-        this->second = idx;
-    }
-};
-
-template<typename PropertyValueType>
-struct PropertyIndexMap{
-    typedef std::unordered_map<typename CharSequenceToStringElseNoChange<PropertyValueType>::type, int> type;
-};
-
-/// \brief 道路地图
-class Map{
-public:
-
-    Map()noexcept:crossIndex(bgi::dynamic_quadratic(1)), segmentIndex(bgi::dynamic_quadratic(1)){}
-
-    /// \brief 构建graph
-    void buildGraph();
-
-    /// \brief 载入shp地图
-    /// \param[in] shpFile shp的路径(不包括后缀)
-    /// \param[in] picker 自定义的属性选取器,默认无属性双向道路
-    /// \param[in] checker 自定义的路口检查器,默认使用geometry检查是否已经添加
-    /// \retval true 成功载入地图
-    /// \retval false 出现io错误
     template<typename Picker = NoPropertiesPicker, typename Checker = GeometryChecker>
-    bool load(std::string const& shpFile, Picker picker = Picker(), Checker checker = Checker());
-
-    /// \brief 映射路口属性到索引
-    /// \param[in] propertyName 要映射的属性名字
-    /// \param typename PropertyValueType 属性对应的数据类型
-
-    /// 映射用户自定义的属性到索引,可以用通过属性名查询路口
-
-    /// \see cross containCross
-    template<typename PropertyValueType>
-    void mapCrossProperty(std::string const& propertyName);
-    
-    /// \brief 映射路段属性到索引
-    /// \param[in] propertyName 要映射的属性名字
-    /// \param typename PropertyValueType 属性对应的数据类型
-    ///
-    /// 映射用户自定义的属性到索引,可以用通过属性名查询路段
-    /// \see roadsegment containRoadSegment
-    template<typename PropertyValueType>
-    void mapRoadsegmentProperty(std::string const& propertyName);
-
-    /// \brief 通过索引查询路口是否存在
-    inline bool containCross(int index)const{
-        return index >= 0 && index < _cross.size();
-    }
-
-    /// \brief 通过属性查询路口是否存在
-    /// \param[in] propertyName 映射过的属性名
-    /// \param[in] value 属性值
-    /// \see mapCrossProperty
-    template<typename T>
-    inline bool containCross(std::string const& propertyName, T const& value)const{
-        typedef typename PropertyIndexMap<T>::type MapType;
-        auto iter = _crossPropertyIndexMap.find(propertyName) ;
-        if ( iter != _crossPropertyIndexMap.end() ){
-            return b::any_cast<MapType const&>(iter->second).count(value);
+    bool load(std::string const& shpFile, Picker picker = Picker(), Checker checker = Checker()){
+        bool succ = Map::load(shpFile, picker, checker);
+        if ( ! succ ){
+            return false;
         }
-        return false;
+
+        buildGraph();
+        visitRoadSegment([](RoadSegment& road){
+            double d = bg::length(road.geometry);
+            road.properties.put("GEO_LENGTH", d);
+        });
+        return true;
     }
 
-    ///  \brief 通过索引查询路段是否存在
-    inline bool containRoadSegment(int index)const{
-        return index >= 0 && index < _roadsegment.size();
-    }
+    ///\brief 范围查询路口
+    ///\ret 返回路口索引按照距离查询点距离大小排序
+    std::vector<int> queryCross(Point const& p, double radious)const;
 
-    /// \brief 通过映射过的属性查询路段是否存在
-    /// \see mapRoadSegmentProperty
-    template<typename T>
-    inline bool containRoadSegment(std::string const& propertyName, T const& value)const{
-        typedef typename PropertyIndexMap<T>::type MapType;
-        auto iter = _roadsegmentPropertyIndexMap.find(propertyName) ;
-        if ( iter != _roadsegmentPropertyIndexMap.end() ){
-            return b::any_cast<MapType const&>(iter->second).count(value);
+    ///\brief 范围查询道路
+    ///\ret 返回道路索引按照距离查询点距离大小排序
+    std::vector<int> queryRoad(Point const& p, double radious)const;
+
+    inline Path shortestPath(int crossA, int crossB)const{
+        if ( shortestPathStrategy == BGLDijkstra ){
+            return shortestPathBGLDijkstra(crossA, crossB);
+        }else if ( shortestPathStrategy == Dijkstra ){
+            return shortestPathDijkstra(crossA, crossB);
+        }else{
+            return shortestPathAStar(crossA, crossB);
         }
-        return false;
     }
+    Path shortestPath(ProjectPoint const& start, ProjectPoint const& end)const;
+    Path shortestPath(ProjectPoint const& start, int end)const;
+    Path shortestPath(int start, ProjectPoint const& end)const;
+    Path shortestPathAStar(int crossA, int crossB)const;
+    Path shortestPathDijkstra(int crossA, int crossB)const;
+    Path shortestPathBGLDijkstra(int crossA, int crossB)const;
+    ProjectPoint nearestProject(Point const& p)const;
 
-
-    ///  \brief 获取路口
-    inline Cross const& cross(int index)const{
-        return _cross.at(index);
-    }
-
-    /// \brief 通过属性获得路口
-    ///  \see mapCrossProperty
-    template<typename T>
-    inline Cross const& cross(std::string const& propertyName, T const& value)const{
-        typedef typename PropertyIndexMap<T>::type MapType;
-        return _cross.at(b::any_cast<MapType const&>(_crossPropertyIndexMap.at(propertyName)).at(value));
-    }
-
-    /// \brief 获得路段
-    inline RoadSegment const& roadsegment(int index)const{
-        return _roadsegment.at(index);
-    }
-
-
-    /// \brief 根据属性值获取路段
-    /// \see mapRoadSegmentProperty
-    template<typename T>
-    inline RoadSegment const& roadsegment(std::string const& propertyName, T const& value)const{
-        typedef typename PropertyIndexMap<T>::type MapType;
-        return _roadsegment.at(b::any_cast<MapType const&>(_roadsegmentPropertyIndexMap.at(propertyName)).at(value));
-    }
-
-    /// 线段索引RTree
-    typedef bgi::rtree<std::pair<Segment, int> , bgi::dynamic_quadratic> SegmentRTree;
-    /// 点索引RTree
-    typedef bgi::rtree<std::pair<Point, int> , bgi::dynamic_quadratic> PointRTree;
-    
-    struct RoadIndexOfEdgeTag{
-        typedef b::edge_property_tag kind;
-    };
-    static RoadIndexOfEdgeTag roadIndexOfEdgeTag;
-
-    /// graph 内部保存边对应的RoadSegment索引
-    typedef b::property<RoadIndexOfEdgeTag, int> RoadIndexProperty;
-
-    /// graph
-    typedef b::adjacency_list<b::vecS, b::vecS, b::directedS, b::no_property, RoadIndexProperty> Graph;
-    typedef b::graph_traits<Graph> GraphTraits;
-    SegmentRTree segmentIndex;///< 路段空间索引
-    PointRTree crossIndex;///< 路口空间索引
-
-    Graph graph;///< graph
-
-    /// \brief 访问所有的路段
-    void visitRoadSegment(std::function<void(RoadSegment const&r)> visitor)const;
-    /// \brief 访问所有的路段
-    void visitRoadSegment(std::function<void(RoadSegment &r)> visitor);
-    /// \brief 访问所有的边
-    void visitEdge(std::function<void(RoadSegment const&r, GraphTraits::edge_descriptor, Graph const& g)> visitor)const;
-    /// \brief 访问所有的边
-    void visitEdge(std::function<void(RoadSegment &r, GraphTraits::edge_descriptor, Graph &)> visitor);
-
-    /// \brief 访问所有路欧
-    void visitCross(std::function<void(Cross const&)> visitor)const;
-    /// \brief 访问所有路口
-    void visitCross(std::function<void(Cross &)> visitor);
-
-    /// \brief 获得驶入道路
-    inline std::vector<RoadIndexCrossIndexPair> const& inRoadOf(int index)const{
-        return _inRoad.at(index);
-    }
-
-    /// \brief 获得驶出道路
-    inline std::vector<RoadIndexCrossIndexPair> const& outRoadOf(int index)const{
-        return _outRoad.at(index);
-    }
-
-    /// \brief  获得路段
-    inline RoadSegment const& roadsegment( GraphTraits::edge_descriptor const& edge)const{
-        int roadIdx = b::get(roadIndexOfEdgeTag, graph, edge);
-        return _roadsegment.at(roadIdx);
-    }
-
-    inline RoadIndexCrossIndexPair findRoadForward(int start, int end)const{
-        if ( start > 0 || start < _cross.size())
-        {
-            for ( RoadIndexCrossIndexPair  const& p : _outRoad.at(start) ){
-                if ( end == p.crossIndex() ){
-                    return p;
-                }
-            }
-        }
-        RoadIndexCrossIndexPair p;
-        p.first = p.second = -1;
-        return p;
-    }
-
-    inline RoadIndexCrossIndexPair findRoadBidrection(int start, int end)const{
-        RoadIndexCrossIndexPair rst = findRoadForward(start, end);
-        if ( rst.roadIndex() == -1 ){
-            return findRoadForward(end, start);
-        }
-        return rst;
-    }
-
-private:
-    void _index();
-    std::unordered_map<std::string, b::any> _crossPropertyIndexMap;
-    std::unordered_map<std::string, b::any> _roadsegmentPropertyIndexMap;
-    std::vector<RoadSegment> _roadsegment;
-    std::vector<Cross> _cross;
-    std::vector<std::vector<RoadIndexCrossIndexPair> >_outRoad;
-    std::vector<std::vector<RoadIndexCrossIndexPair> >_inRoad;
-    std::unordered_multimap<int, GraphTraits::edge_descriptor> _roadEdgeMap;
+    PropertyMapFromRoadProperty<double> edgeWeightMap;
+    ShortestPathStrategy shortestPathStrategy;
 };
 
-
-//template impl
-struct ShpFileOpenHelper{
-    SHPHandle hShp;
-    DBFHandle hDbf;
-    ShpFileOpenHelper (std::string const& name){
-        std::string shpFile = name + ".shp";
-        std::string dbfFile = name + ".dbf";
-        hShp = SHPOpen(shpFile.c_str(), "r");
-        hDbf = DBFOpen(dbfFile.c_str(), "r");
-    }
-
-    ~ShpFileOpenHelper(){
-        if ( hShp ) SHPClose(hShp);
-        if ( hDbf ) DBFClose(hDbf);
-    }
-
-    inline operator void*(){
-        return (void*) (hShp && hDbf);
-    }
-};
-
-
-template<typename Picker, typename Checker>
-bool Map::load(std::string const& shp,  Picker picker, Checker checker){
-    ShpFileOpenHelper helper(shp);
-    if ( ! helper ){
-        return false;
-    }
-
-    int roadSegmentCount = DBFGetRecordCount(helper.hDbf);
-    _roadsegment.reserve(roadSegmentCount);
-    for(int i = 0; i < roadSegmentCount; ++i){
-        SHPObject* linestring = SHPReadObject(helper.hShp, i);
-        RoadSegment r;
-        int n = linestring->nVertices;
-        r.geometry.reserve(n);
-        for(int i = 0; i < n; ++i){
-            r.geometry.push_back({linestring->padfX[i], linestring->padfY[i]});
-        }
-        SHPDestroyObject(linestring);
-        r.direction = picker.pickRoadsegment(r.properties, helper.hDbf, i);
-
-        Point s = r.geometry.front();
-        Point e = r.geometry.back();
-        unsigned int startIndex, endIndex;
-        if ( checker.crossIsNew(Front, s, r, helper.hDbf, i) ){
-            Cross front;
-            front.geometry = s;
-            picker.pickCross(Front, front.properties, helper.hDbf, i);
-            startIndex = front.index = _cross.size();
-            _cross.push_back(std::move(front));
-            checker.storeIndex(Front, s, startIndex, r, helper.hDbf, i);
-        }else{
-            startIndex = checker.getIndex(Front, s, r, helper.hDbf, i);
-        }
-
-        if ( checker.crossIsNew(Back, e, r, helper.hDbf, i) ){
-            Cross back;
-            back.geometry = e;
-            picker.pickCross(Back, back.properties, helper.hDbf, i);
-            endIndex = back.index = _cross.size();
-            _cross.push_back(std::move(back));
-            checker.storeIndex(Back, e, endIndex, r, helper.hDbf, i);
-        }else{
-            endIndex = checker.getIndex(Back, e, r, helper.hDbf, i);
-        }
-
-        r.startCrossIndex = startIndex;
-        r.endCrossIndex = endIndex;
-        r.index = _roadsegment.size();
-        _roadsegment.push_back(std::move(r));
-    }
-
-    _index();
-    return true;
-}
-
-template<typename PropertyValueType>
-void Map::mapCrossProperty(std::string const& propertyName){
-    typedef typename PropertyIndexMap<PropertyValueType>::type MapType;
-    MapType pimap;
-    for(auto& c : _cross){
-        pimap[c.properties.get<PropertyValueType>(propertyName)] = c.index;
-    }
-    _crossPropertyIndexMap.insert({propertyName, b::any(std::move(pimap))});
-}
-
-template<typename PropertyValueType>
-void Map::mapRoadsegmentProperty(std::string const& propertyName){
-    typename PropertyIndexMap<PropertyValueType>::type pimap;
-    for(auto& r : _roadsegment){
-        pimap[r.properties.get<PropertyValueType>(propertyName)] = r.index;
-    }
-    _roadsegmentPropertyIndexMap.insert({propertyName, boost::any(std::move(pimap))});
-}
-
-#endif  /*ROADMAP_H*/
+Linestring geometry(Path const& path, RoadMap const& m);
+#endif /* ROADMAP_H */

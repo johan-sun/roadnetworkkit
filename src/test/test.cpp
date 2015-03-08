@@ -13,14 +13,16 @@
 #include  <map>
 #include <unordered_map>
 #include  <iostream>
-#include    "roadmap.h"
+#include "generalmap.h"
 #include    "bj-road-epsg3785/bj_road_epsg3785.h"
+#include    "roadmap.h"
+#include    "gps.h"
 #include    "util.h"
 #include    "map_graph_property.hpp"
 #include    "sutil/boost/geometry/distance_projected_point_return_point.hpp"
 #include    "sutil/boost/graph/dijkstra_shortest_paths_to_dest.hpp"
 #include    "sutil/boost/graph/visitor_adaptor.hpp"
-
+#include    "sutil/boost/date_time/date_time_format.hpp"
 //}}}
 using namespace std;
 
@@ -32,12 +34,27 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
         BOOST_REQUIRE(map.load("../data/map/bj-road-epsg3785", BJRoadEpsg3785IDPicker(), BJRoadEpsg3785CrossIDChecker()));
         map.mapCrossProperty<string>("ID");
         map.mapRoadsegmentProperty<string>("ID");
+
         BOOST_CHECK(map.containCross("ID", "60575200005"));
         BOOST_CHECK(map.containRoadSegment("ID", "60575200004"));
         BOOST_CHECK(bg::equals(map.cross("ID", "59566338038").geometry,
                 fromWKT<Point>("POINT(12962877.13440558314323425 4847075.07403475046157837)")));
         BOOST_CHECK(bg::equals(map.roadsegment("ID", "59566308618").geometry, fromWKT<Linestring>("LINESTRING(12963151.44789479300379753 4846751.49003899563103914, 12963139.62576487474143505 4846684.77474731393158436, 12963134.49616274051368237 4846654.46518910489976406, 12963129.40663561969995499 4846627.62786234728991985, 12963122.59388278238475323 4846432.13265211507678032)")));
         map.buildGraph();
+        Point p(12953111.5, 4846189.4);
+        Point prj = projectPoint(p, map.roadsegment(85577).geometry);
+        BOOST_CHECK( bg::equals(prj, map.cross(65774).geometry) );
+        stringstream ss;
+        ss << setprecision(16) << bg::wkt(prj);
+        Point pp;
+        bg::read_wkt(ss.str(), pp);
+        BOOST_CHECK( bg::equals(prj, pp) );
+
+        Point c = fromWKT<Point>("POINT(12979268.69788035191595554 4861101.51186775788664818)");
+        Point c2 = fromWKT<Point>("POINT(12979268.69788035 4861101.511867757)");
+        BOOST_CHECK(bg::equals(c, c2));
+
+
     }
 
     BOOST_AUTO_TEST_CASE(basic_query) {
@@ -55,6 +72,7 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
         for (auto &p : map.crossIndex | bgi::adaptors::queried(bgi::within(range150))) {
             result.insert(p.second);
         }
+
         BOOST_CHECK_EQUAL_COLLECTIONS(begin(result), end(result), begin(correctResult2), end(correctResult2));
     }
 
@@ -150,30 +168,40 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
         typedef Map::GraphTraits::vertex_descriptor Vertex;
         Vertex start = 73184, end = 73050;
 
-        vector<Vertex> pre(b::num_vertices(map.graph));
         vector<double> d(b::num_vertices(map.graph));
-
         b::dijkstra_shortest_paths(map.graph, start,
-                b::weight_map(edgeWeightMap).distance_map(&d[0]).predecessor_map(&pre[0])
+                b::weight_map(edgeWeightMap).distance_map(&d[0])
         );
-        cout << d[end] << endl;
-
-        unordered_map<Vertex , double> ld;ld.reserve(num_vertices(map.graph));
-
+        unordered_map<Vertex , double> distanceMap;
+        distanceMap.reserve(num_vertices(map.graph));
         double inf = numeric_limits<double>::max();
-        b::lazy_associative_property_map<std::unordered_map<Vertex ,double> > distanceMap(ld, inf);
-        b::timer timer;
-        b::dijkstra_shortest_paths(map.graph, start, b::weight_map(edgeWeightMap));//.distance_map(distanceMap));
-        cout << timer.elapsed() << endl;
-        ld.clear();
-        timer.restart();
+
         b::dijkstra_shortest_paths_to_dest(map.graph, start, end,
-                //b::distance_map(distanceMap).
-                b::weight_map(edgeWeightMap));
-        cout << timer.elapsed() << endl;
-        cout << ld[end] << endl;
+                b::distance_map(b::make_lazy_property_map(distanceMap, inf)).
+                weight_map(edgeWeightMap));
+
+        BOOST_CHECK_EQUAL( d[end] , distanceMap[end]);
     }
 
+
+    RoadMap bjRoad;
+    BOOST_AUTO_TEST_CASE( bj_road_query ){
+        BOOST_REQUIRE(bjRoad.load("../data/map/bj-road-epsg3785", BJRoadEpsg3785IDPicker(), BJRoadEpsg3785CrossIDChecker()));
+        Point p = bjRoad.cross(104439).geometry;
+        vector<int> ret = bjRoad.queryCross(p, 818.214);
+        set<int> returnSet(begin(ret), end(ret));
+        set<int> correct{104441, 104439, 104440};
+        BOOST_CHECK_EQUAL_COLLECTIONS(begin(returnSet), end(returnSet), begin(correct), end(correct));
+
+        //boost::timer t;
+        //Path r = bjRoad.shortestPath(65240, 65775);
+        //cout << t.elapsed() << "s" << endl;
+        //BOOST_CHECK_CLOSE(r.distance, 1074.448, 0.1);
+        //vector<int> routeRoadSegmentIndex{84359, 87425, 87424,85577, 85351,85352};
+        //vector<int> routeCrossIndex{65240, 65239, 67026,65246,65774, 65773, 65775};
+        //BOOST_CHECK_EQUAL_COLLECTIONS(r.crossIndex.begin(), r.crossIndex.end(), routeCrossIndex.begin(), routeCrossIndex.end());
+        //BOOST_CHECK_EQUAL_COLLECTIONS(r.roadSegmentIndex.begin(), r.roadSegmentIndex.end(), routeRoadSegmentIndex.begin(), routeRoadSegmentIndex.end());
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 

@@ -5,9 +5,8 @@
 #include  <string>
 #include  <type_traits>
 #include  <iostream>
-#include    "roadmap.h"
+#include    "generalmap.h"
 //}}}
-
 
 template<typename PropertyValue>
 class PropertyMapFromRoadProperty{

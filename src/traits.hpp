@@ -5,6 +5,8 @@
 #include  <boost/mpl/vector.hpp>
 #include  <boost/mpl/contains.hpp>
 #include  <boost/mpl/lambda.hpp>
+#include <type_traits>
+#include <string>
 //}}}
 namespace boost{namespace mpl{
     template<typename T>
