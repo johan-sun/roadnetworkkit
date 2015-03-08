@@ -101,13 +101,13 @@ void doOutput(Output const* po, RoadMap const& map){
             try {
                 fs::create_directories(dir);
             } catch (fs::filesystem_error const &err) {
-                cerr << "[" << po->pinput->line << "]" << " error:" << err.what() << "\n";
+                cerr << "[" << po->pinput->line << "]" << " error:" << err.what() << endl;
             }
         }
         if( po->timedPath.size() == 1){
             fs::ofstream os(po->pinput->trajOutput);
             if (!os) {
-                cerr << "[" << po->pinput->line << "]" << " error:" << "can not open " << po->pinput->trajOutput << "\n";
+                cerr << "[" << po->pinput->line << "]" << " error:" << "can not open " << po->pinput->trajOutput << endl;
             } else {
                 for (TimedCrossIndex const &idx : po->timedPath[0]) {
                     os << idx.first << "," << to_format_string(idx.second, "%Y-%m-%d %H:%M:%S%F") << "\n";
@@ -120,7 +120,7 @@ void doOutput(Output const* po, RoadMap const& map){
                 newName = dir/(f.stem().string()+"-"+to_string(i)+f.extension().string());
                 fs::ofstream os(newName);
                 if (!os) {
-                    cerr << "[" << po->pinput->line << "]" << " error:" << "can not open " << newName << "\n";
+                    cerr << "[" << po->pinput->line << "]" << " error:" << "can not open " << newName << endl;
                 } else {
                     for (TimedCrossIndex const &idx : po->timedPath[i]) {
                         os << idx.first << "," << to_format_string(idx.second, "%Y-%m-%d %H:%M:%S%F") << "\n";
@@ -186,12 +186,12 @@ void writer(lf::queue<Output*>& outputQueue,
         atomic_bool const& mapMatchDone){
     auto doWith = [&bjRoadMap](Output * poutput){
         if ( poutput->type == Output::GpsTooLessOrLoadFail)
-            cerr << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " gps too less or load fail:" << poutput->pinput->input << "\n";
+            cerr << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " gps too less or load fail:" << poutput->pinput->input << endl;
         else if ( poutput->type == Output::MapMatchFail )
-            cerr << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " map match fail:" << poutput->pinput->input << "\n";
+            cerr << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " map match fail:" << poutput->pinput->input << endl;
         else{
             doOutput(poutput, bjRoadMap);
-            cout << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " finished in "<< poutput->cost << "s:" << poutput->pinput->input << "\n";
+            cout << b::posix_time::second_clock::local_time() << " [" << poutput->pinput->line << "]" << " finished in "<< poutput->cost << "s:" << poutput->pinput->input << endl;
         }
         delete poutput->pinput;
         delete poutput;
