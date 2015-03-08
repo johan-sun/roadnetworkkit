@@ -348,8 +348,8 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    time_t t = time(NULL);
-    cout.imbue(locale(cout.getloc(), new b::posix_time::time_input_facet("%Y-%m-%d %H:%M:%S")));
+    cout.imbue(locale(cout.getloc(), new b::posix_time::time_facet("%Y-%m-%d %H:%M:%S")));
+    cerr.imbue(locale(cout.getloc(), new b::posix_time::time_facet("%Y-%m-%d %H:%M:%S")));
     cout << b::posix_time::second_clock::local_time() << " SHP:" << roadShp << endl;
     cout << "IVMM.projectDistMean = " << param.projectDistMean << endl;
     cout << "IVMM.projectDistStddev = " << param.projectDistStddev << endl;
