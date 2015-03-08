@@ -1,21 +1,24 @@
-#include "sutil/boost/date_time/date_time_format.hpp"
+#include <string>
+#include  <boost/date_time.hpp>
 #include "gps.h"
 using namespace std;
+
 vector<GpsPoint> loadFromFile(std::string const & name){
     vector<GpsPoint> ret;
     ifstream ifs(name);
-    tm t;
+    ifs.imbue(locale(ifs.getloc(), new boost::posix_time::time_input_facet("%Y-%m-%d %H:%M:%S")));
     double x;
     double y;
+    boost::posix_time::ptime ptime;
     if ( ifs){
         while ( ifs.ignore(1024, ',') &&
-                ifs >> get_time(&t, "%Y-%m-%d %H:%M:%S") &&
-                ifs.ignore() &&
+                ifs >> ptime &&
+                ifs.ignore(),
                 ifs.ignore(1024,',') &&
                 ifs.ignore(1024, ',') &&
                 ifs >> x && ifs.ignore() &&
                 ifs >> y){
-            GpsPoint p(x, y, boost::posix_time::ptime_from_tm(t));
+            GpsPoint p(x, y, ptime);
             ret.push_back(p);
         }
     }
