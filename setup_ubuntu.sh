@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 #install toolkit
 
-dataSourceIP=syh-tj-ubuntu.local
-which clang || sudo apt-get install -y clang-3.5 || sudo apt-get install -y clang
-which cmake || sudo apt-get install -y cmake
-which showmount || sudo apt-get install -y nfs-common
-find /usr/include/shapefil.h || sudo apt-get install -y libshp-dev
-[ -d /usr/local/include/boost ] || sudo apt-get install -y libboost1.55-all-dev || sudo apt-get install -y libboost-all-dev
+function exit_for {
+    echo $1
+    exit
+}
 
-git submodule update --init
+dataSourceIP=syh-tj-ubuntu.local
+which clang || sudo apt-get install -y clang || exit_for 'unable to install clang'
+which cmake || sudo apt-get install -y cmake || exit_for 'unable to install cmake'
+which showmount || sudo apt-get install -y nfs-common || exit_for 'unable to'
+find /usr/include/shapefil.h || sudo apt-get install -y libshp-dev || exit_for 'unbale to install libshp'
+[ -d /usr/local/include/boost ] || sudo apt-get install -y libboost1.55-all-dev || sudo apt-get install -y libboost-all-dev || exit_for 'unable to install boost'
+
+git submodule update --init || exit_for 'unable to update submodule'
 
 #mkdirs
 scriptDir=$(cd `dirname $0`;pwd)
@@ -27,5 +32,7 @@ nprocessor=$(cat /proc/cpuinfo | grep processor | wc -l)
 make install -j$nprocessor
 cd $workspaceDir
 
-sudo mount -o ro -t nfs $dataSourceIP://var/GPS $GPSDir
-sudo mount -o rw -t nfs $dataSourceIP://var/Traj $trajDir
+sudo mount -o ro -t nfs $dataSourceIP://var/GPS $GPSDir || exit_for 'unable to mount nfs GPS'
+echo 'GPS mount'
+sudo mount -o rw -t nfs $dataSourceIP://var/Traj $trajDir || exit_for 'unable to mount nfs Traj'
+echo 'Traj mount'
