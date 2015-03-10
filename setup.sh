@@ -24,5 +24,5 @@ cd $buildDir
 cmake $scriptDir
 nprocessor=$(cat /proc/cpuinfo | grep processor | wc -l)
 make install -j$nprocessor
-sudo mount -o ro -t nfs $dataSourceIP://var/GPS
-sudo mount -o rw -t nfs $dataSourceIP://var/Traj
+sudo mount -o ro -t nfs $dataSourceIP://var/GPS $GPSDir
+sudo mount -o rw -t nfs $dataSourceIP://var/Traj $trajDir
