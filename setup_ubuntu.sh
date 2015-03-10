@@ -13,16 +13,17 @@ which clang || sudo apt-get install -y clang || exit_for 'unable to install clan
 which cmake || sudo apt-get install -y cmake || exit_for 'unable to install cmake'
 which showmount || sudo apt-get install -y nfs-common || exit_for 'unable to install nfs client'
 find /usr/include/shapefil.h || sudo apt-get install -y libshp-dev || exit_for 'unbale to install libshp'
-if ![ -d /usr/local/include/boost ]
+if ! [ -d /usr/local/include/boost ]
 then
-    boostTmp=$(mktemp -d /tmp/boost1.57.XXXXXX)
+    boostTmp=$(mktemp -d /var/tmp/boost1.57.XXXXXX)
     cd $boostTmp
-    wget http://jaist.dl.sourceforge.net/project/boost/boost/1.57.0/boost_1_57_0.tar.bz2 || exit_for 'unable to download boost 1.57'
+    wget syh-tj-ubuntu.local/boost_1_57_0.tar.bz2 || exit_for 'unable to download boost 1.57'
     tar -xvf boost_1_57_0.tar.bz2
     cd boost_1_57_0
     ./bootstrap.sh --prefix=/usr/local/
     ./b2 -j$nprocessor
     sudo ./b2 install
+    cd $scriptDir
 fi
 
 git submodule update --init || exit_for 'unable to update submodule'
