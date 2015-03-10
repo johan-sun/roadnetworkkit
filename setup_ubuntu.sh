@@ -13,7 +13,7 @@ which clang || sudo apt-get install -y clang || exit_for 'unable to install clan
 which cmake || sudo apt-get install -y cmake || exit_for 'unable to install cmake'
 which showmount || sudo apt-get install -y nfs-common || exit_for 'unable to install nfs client'
 find /usr/include/shapefil.h || sudo apt-get install -y libshp-dev || exit_for 'unbale to install libshp'
-if [ -d /usr/local/include/boost ];
+if ![ -d /usr/local/include/boost ]
 then
     boostTmp=$(mktemp -d /tmp/boost1.57.XXXXXX)
     cd $boostTmp
