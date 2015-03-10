@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 project (roadnetworkkit)
 
-find_package(PythonLibs REQUIRED)
-find_package(Boost REQUIRED COMPONENTS unit_test_framework program_options filesystem system thread serialization)
+#find_package(PythonLibs REQUIRED)
+find_package(Boost REQUIRED COMPONENTS unit_test_framework program_options filesystem system thread)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})

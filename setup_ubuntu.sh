@@ -2,7 +2,7 @@
 #install toolkit
 
 dataSourceIP=syh-tj-ubuntu.local
-
+which clang || sudo apt-get install -y clang-3.5 || sudo apt-get install -y clang
 which cmake || sudo apt-get install -y cmake
 which showmount || sudo apt-get install -y nfs-common
 find /usr/include/shapefil.h || sudo apt-get install -y libshp-dev
@@ -22,8 +22,10 @@ trajDir=$dataDir/traj
 [ -d $GPSDir ] || mkdir -p $GPSDir
 
 cd $buildDir
-cmake $scriptDir
+CC=clang CXX=clang++ cmake $scriptDir -DCMAKE_BUILDTYPE=Release
 nprocessor=$(cat /proc/cpuinfo | grep processor | wc -l)
 make install -j$nprocessor
+cd $workspaceDir
+
 sudo mount -o ro -t nfs $dataSourceIP://var/GPS $GPSDir
 sudo mount -o rw -t nfs $dataSourceIP://var/Traj $trajDir
