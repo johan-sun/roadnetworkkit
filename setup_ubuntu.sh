@@ -8,6 +8,7 @@ which showmount || sudo apt-get install -y nfs-common
 find /usr/include/shapefil.h || sudo apt-get install -y libshp-dev
 [ -d /usr/local/include/boost ] || sudo apt-get install -y libboost1.55-all-dev || sudo apt-get install -y libboost-all-dev
 
+git submodule update --init
 
 #mkdirs
 scriptDir=$(cd `dirname $0`;pwd)
