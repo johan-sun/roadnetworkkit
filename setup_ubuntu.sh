@@ -27,12 +27,10 @@ trajDir=$dataDir/traj
 [ -d $GPSDir ] || mkdir -p $GPSDir
 
 cd $buildDir
-CC=clang CXX=clang++ cmake $scriptDir -DCMAKE_BUILDTYPE=Release
+CC=clang CXX=clang++ cmake $scriptDir -DCMAKE_BUILD_TYPE=Release
 nprocessor=$(cat /proc/cpuinfo | grep processor | wc -l)
 make install -j$nprocessor
 cd $workspaceDir
 
-sudo mount -o ro -t nfs $dataSourceIP://var/GPS $GPSDir || exit_for 'unable to mount nfs GPS'
-echo 'GPS mount'
-sudo mount -o rw -t nfs $dataSourceIP://var/Traj $trajDir || exit_for 'unable to mount nfs Traj'
-echo 'Traj mount'
+sudo mount -o ro -t nfs $dataSourceIP://var/GPS $GPSDir
+sudo mount -o rw -t nfs $dataSourceIP://var/Traj $trajDir
