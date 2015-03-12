@@ -8,6 +8,7 @@
 #include <boost/geometry/geometries/register/linestring.hpp>
 #include "geomerty.h"
 //}}}
+///\brief GpsPoint
 struct GpsPoint{
     GpsPoint()=default;
     GpsPoint(double x, double y, boost::posix_time::ptime time):geometry(x,y),time(time){}

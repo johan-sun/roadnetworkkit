@@ -10,12 +10,14 @@
 
 class GpsPoint;
 
+///\brief 候选点
 struct Candidate{
-    ProjectPoint point;
-    int vote;
-    double fvalue;
+    ProjectPoint point;///< 投影点
+    int vote;///< 投票
+    double fvalue;///< ivmm论文中的favlue
 };
 
+///\brief IVMM算法参数
 struct IVMMParam{
     double candidateQueryRadious;
     int candidateLimit;
@@ -25,16 +27,19 @@ struct IVMMParam{
     int window;
 };
 
+///\brief 计算静态矩阵m[i][j]对应值的具体参数
 struct Detail{
-    double weightSpeed;
-    double avgSpeed;
-    double twoGpsDistance;
-    double pathLength;
-    int timeInteval;
+    double weightSpeed;///< 两候选点之间最短路径的道路加权速度
+    double avgSpeed;///< 平均估计速度
+    double twoGpsDistance;///< 两个GPS点之间的直线距离
+    double pathLength;///< 最短路径长度
+    int timeInteval;///< 两个GPS的时间间隔
 
-    double v;
-    double ft;
+    double v;///< 论文中的v
+    double ft;///< 论文中的ft
 };
+
+///\brief IVMM
 class IVMM{
 public:
     template<typename V> using VVector = std::vector<std::vector<V> >;
@@ -96,6 +101,10 @@ public:
             IVMM::VVVector<Detail> const& details, 
             IVMM::VVector<double> const& n)const;
 
+    ///\brief ivmm 地图匹配
+    ///\param[in] log GpsLog
+    ///\param[out] ranges 有效的路径区间
+    ///\ret 匹配路径，匹配路径中间可能断代，用ranges指出
     std::vector<Path> 
         mapMatchSafe(std::vector<GpsPoint> const& log, std::vector<std::pair<int, int> >& ranges)const;
     IVMMParam param;

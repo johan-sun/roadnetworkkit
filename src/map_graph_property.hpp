@@ -8,12 +8,20 @@
 #include    "generalmap.h"
 //}}}
 
+///\breif 地图属性的edge property map
+///
+///根据地图属性包装一个property map
+///可以用于BGL
 template<typename PropertyValue>
 class PropertyMapFromRoadProperty{
 public:
     typedef Map::GraphTraits::edge_descriptor key_type;
     typedef typename CharSequenceToStringElseNoChange<PropertyValue>::type value_type;
     typedef boost::readable_property_map_tag category;
+    ///\breif 构建proerpty map
+    ///
+    ///\param map 被包装的map
+    ///\param name 地图属性的字段
     PropertyMapFromRoadProperty(Map const& map, std::string const& name):_map(map),_name(name){}
 
     value_type get(key_type const& key)const{

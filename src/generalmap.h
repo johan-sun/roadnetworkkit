@@ -292,13 +292,13 @@ public:
     void visitCross(std::function<void(Cross &)> visitor);
 
     /// \brief 获得驶入道路
-    inline std::vector<RoadIndexCrossIndexPair> const& inRoadOf(int index)const{
+    inline std::vector<RoadIndexCrossIndexPair> const& inRoadOf(int crossIndex)const{
         return _inRoad.at(index);
     }
 
 
     /// \brief 获得驶出道路
-    inline std::vector<RoadIndexCrossIndexPair> const& outRoadOf(int index)const{
+    inline std::vector<RoadIndexCrossIndexPair> const& outRoadOf(int crossIndex)const{
         return _outRoad.at(index);
     }
 

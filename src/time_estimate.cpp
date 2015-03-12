@@ -1,5 +1,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/range/algorithm.hpp>
+#include <fstream>
+#include <boost/date_time/time_facet.hpp>
 #include "time_estimate.h"
 using namespace std;
 
@@ -91,5 +93,19 @@ vector<TimedCrossIndex> estimateTime(
         }
     }
     timedPath.resize(b::unique<b::return_begin_found>(timedPath).size());
+    return timedPath;
+}
+
+vector<TimedCrossIndex> loadTimedPathFromFile(string const& file){
+    ifstream ifs(file);
+    vector<TimedCrossIndex> timedPath;
+    if ( ifs ){
+        ifs.imbue(std::locale(ifs.getloc(), new boost::posix_time::time_input_facet("%Y-%m-%d %H:%M:%S%F")));
+        int id;
+        ptime time;
+        while ( ifs >> id && ifs.ignore() && ifs >> time ){
+            timedPath.push_back({id, time});
+        }
+    }
     return timedPath;
 }
