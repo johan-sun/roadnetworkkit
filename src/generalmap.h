@@ -293,13 +293,13 @@ public:
 
     /// \brief 获得驶入道路
     inline std::vector<RoadIndexCrossIndexPair> const& inRoadOf(int crossIndex)const{
-        return _inRoad.at(index);
+        return _inRoad.at(crossIndex);
     }
 
 
     /// \brief 获得驶出道路
     inline std::vector<RoadIndexCrossIndexPair> const& outRoadOf(int crossIndex)const{
-        return _outRoad.at(index);
+        return _outRoad.at(crossIndex);
     }
 
     /// \brief  获得路段
