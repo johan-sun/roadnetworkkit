@@ -329,6 +329,7 @@ public:
         }
         return rst;
     }
+    virtual ~Map()=default;
 
 private:
     void _index();

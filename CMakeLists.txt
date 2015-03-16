@@ -68,7 +68,16 @@ add_executable(timedPathDraw
 target_link_libraries(timedPathDraw
     roadnetworkkit
 )
-install(TARGETS mapMatch timedPathDraw
+
+add_executable(t-driver-statistics
+    src/T-driver/statistics.cpp
+)
+
+target_link_libraries(t-driver-statistics
+    roadnetworkkit
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+)
+install(TARGETS mapMatch timedPathDraw t-driver-statistics
     RUNTIME DESTINATION workspace
 )
 
