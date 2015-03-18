@@ -5,19 +5,19 @@
 struct BJRoadEpsg3785CrossIDChecker{
     const static int FrontCrossIDField = 18;
     const static int BackCrossIDField = 19;
-    bool crossIsNew(CrossPosInRoad pos, Point const& p, RoadSegment const&r , DBFHandle handle, int roadIndex){
+    bool crossIsNew(CrossPosInRoad pos, Point const& /*p*/, RoadSegment const&/*r*/ , DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
         return IDIndexMap.count(id) == 0;
     }
 
-    void storeIndex(CrossPosInRoad pos, Point const& p, int crossIndex, RoadSegment const& r, DBFHandle handle, int roadIndex){
+    void storeIndex(CrossPosInRoad pos, Point const& /*p*/, int crossIndex, RoadSegment const& /*r*/, DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
         IDIndexMap[id] = crossIndex;
     }
 
-    int getIndex(CrossPosInRoad pos, Point const& p, RoadSegment const& r, DBFHandle handle, int roadIndex){
+    int getIndex(CrossPosInRoad pos, Point const& /*p*/, RoadSegment const& /*r*/, DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
         return IDIndexMap.at(id);

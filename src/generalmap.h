@@ -82,7 +82,7 @@ public:
     /// \param[in] handle DBFHandle
     /// \param[in] roadIndex 道路对应的索引
     /// \return  是否是未添加索引的点
-    inline bool crossIsNew(CrossPosInRoad pos, Point const& p, RoadSegment const& r, DBFHandle handle, int roadIndex){
+    inline bool crossIsNew(CrossPosInRoad /*pos*/, Point const& p, RoadSegment const& /*r*/, DBFHandle /*handle*/, int /*roadIndex*/){
         return savedPoint.count(p) == 0;
     }
 
@@ -93,7 +93,7 @@ public:
     /// \param[in] r   路口所连的路段
     /// \param[in] handle DBFHandle
     /// \param[in] roadIndex 道路对应的索引
-    inline void storeIndex(CrossPosInRoad pos, Point const& p, int crossIndex, RoadSegment const& r, DBFHandle handle, int roadIndex){
+    inline void storeIndex(CrossPosInRoad /*pos*/, Point const& p, int crossIndex, RoadSegment const& /*r*/, DBFHandle /*handle*/, int /*roadIndex*/){
         savedPoint[p] = crossIndex;
 
     }
@@ -105,7 +105,7 @@ public:
     /// \param[in] handle DBFHandle
     /// \param[in] roadIndex 道路对应的索引
     /// \return 路口的索引
-    inline int getIndex(CrossPosInRoad pos, Point const& p, RoadSegment const& r, DBFHandle handle, int roadIndex){
+    inline int getIndex(CrossPosInRoad /*pos*/, Point const& p, RoadSegment const& /*r*/, DBFHandle /*handle*/, int /*roadIndex*/){
         return savedPoint[p];
     }
 };
@@ -120,14 +120,14 @@ struct NoPropertiesPicker{
     /// \param[in] handle DBFHandle
     /// \param[in] roadIndex 道路索引
     /// \return Direction 道路的方向
-    inline Direction pickRoadsegment(pt::ptree & properties, DBFHandle handle, int roadIndex){return Bidirection;}
+    inline Direction pickRoadsegment(pt::ptree & /*properties*/, DBFHandle /*handle*/, int /*roadIndex*/){return Bidirection;}
 
     /// \brief 选取路口的额外属性
     /// \param[out] properties 存储额外的路口属性
     /// \param[in] pos 路口对应在道路的位置
     /// \param[in] handle DBFHandle
     /// \param[in] roadIndex 道路的索引
-    inline void pickCross(pt::ptree & properties, CrossPosInRoad pos,  DBFHandle handle, int roadIndex){}
+    inline void pickCross(pt::ptree & /*properties*/, CrossPosInRoad /*pos*/,  DBFHandle /*handle*/, int /*roadIndex*/){}
 };
 
 struct RoadIndexCrossIndexPair : std::pair<int, int>{
@@ -194,7 +194,7 @@ public:
 
     /// \brief 通过索引查询路口是否存在
     inline bool containCross(int index)const{
-        return index >= 0 && index < _cross.size();
+        return index >= 0 && index < (int)_cross.size();
     }
 
     /// \brief 通过属性查询路口是否存在
@@ -213,7 +213,7 @@ public:
 
     ///  \brief 通过索引查询路段是否存在
     inline bool containRoadSegment(int index)const{
-        return index >= 0 && index < _roadsegment.size();
+        return index >= 0 && index < (int)_roadsegment.size();
     }
 
     /// \brief 通过映射过的属性查询路段是否存在
@@ -309,7 +309,7 @@ public:
     }
 
     inline RoadIndexCrossIndexPair findRoadForward(int start, int end)const{
-        if ( start > 0 || start < _cross.size())
+        if ( start > 0 || start < (int)_cross.size())
         {
             for ( RoadIndexCrossIndexPair  const& p : _outRoad.at(start) ){
                 if ( end == p.crossIndex() ){

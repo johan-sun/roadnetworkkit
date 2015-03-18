@@ -58,6 +58,8 @@ compile_flags_dict = {
     '-isystem',
     '/usr/include',
     '-isystem',
+    '/usr/include/c++/4.8',
+    '-isystem',
     '/usr/local/include',
     '-isystem',
     '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1',

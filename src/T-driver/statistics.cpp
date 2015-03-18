@@ -10,7 +10,12 @@
 #include "bj-road-epsg3785/bj_road_epsg3785.h"
 //}}}
 using namespace std;
-
+struct CrossDetail
+{
+    int crossIndex;
+    int count;
+    double entropy;
+};
 struct Phase{
     int in;
     int out;
@@ -18,9 +23,18 @@ struct Phase{
         return in == p.in && out == p.out;
     }
 };
+
+int total(vector<pair<Phase,int> > const& v){
+    int sum = 0;
+    for(auto& p : v){
+        sum += p.second;
+    }
+    return sum;
+}
 int main(int argc, char *argv[])
 {
     RoadMap map;
+    typedef unordered_map<int, vector<pair<Phase,int> > > CrossInfo;
     unordered_map<int, vector<pair<Phase,int> > > crossInfo;
 
     if (argc < 2){
@@ -45,7 +59,7 @@ int main(int argc, char *argv[])
                 }
                 auto succ = find_if(cur, end, [cur](TimedCrossIndex const& c){
                     return c.first != cur->first;
-                 });
+                });
                 if ( succ == end ){
                     break;
                 }
@@ -63,14 +77,30 @@ int main(int argc, char *argv[])
         }
     }
 
-    for(auto& eachPair : crossInfo){
-        int crossIndex = eachPair.first;
-        vector<pair<Phase, int> > const& phasCounter = eachPair.second;
-        cout << crossIndex << ":";
-        for(auto& eachPh : phasCounter){
-            cout << " (" << eachPh.first.in << " ," << eachPh.first.out << ") "<<eachPh.second;
+    vector<CrossDetail> allCrossInfoDetails;
+    allCrossInfoDetails.reserve(crossInfo.size());
+    for(auto& eachInfo : crossInfo){
+        int s = total(eachInfo.second);
+        double e = 0.0;
+        for(auto& eachPh : eachInfo.second){
+            double p = (double)(eachPh.second) / s;
+            e += p * log2(p);
         }
-        cout << endl;
+        CrossDetail d;
+        d.crossIndex = eachInfo.first;
+        d.count = s;
+        d.entropy = -e;
+        if ( abs(d.entropy) < 1e-6 ){
+            d.entropy = 0;
+        }
+        allCrossInfoDetails.push_back(d);
+    }
+    
+    sort(allCrossInfoDetails.begin(), allCrossInfoDetails.end(), [](CrossDetail const& cd1, CrossDetail const& cd2){
+        return cd1.count * cd1.count * cd1.entropy > cd2.count * cd2.count * cd2.entropy;
+    });
+    for(auto& detail : allCrossInfoDetails){
+        cout << detail.crossIndex << ":" << detail.count << ","<< setprecision(16) << detail.entropy << endl;
     }
     return 0;
 }

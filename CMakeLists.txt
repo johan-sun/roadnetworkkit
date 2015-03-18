@@ -77,7 +77,14 @@ target_link_libraries(t-driver-statistics
     roadnetworkkit
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
 )
-install(TARGETS mapMatch timedPathDraw t-driver-statistics
+
+add_executable(drawAllCrossInfo
+    src/T-driver/drawAllCrossInfo.cpp
+)
+target_link_libraries(drawAllCrossInfo
+    roadnetworkkit
+)
+install(TARGETS mapMatch timedPathDraw t-driver-statistics drawAllCrossInfo
     RUNTIME DESTINATION workspace
 )
 
