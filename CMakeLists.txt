@@ -84,7 +84,18 @@ add_executable(drawAllCrossInfo
 target_link_libraries(drawAllCrossInfo
     roadnetworkkit
 )
-install(TARGETS mapMatch timedPathDraw t-driver-statistics drawAllCrossInfo
+
+add_executable(visualEdge
+    src/T-driver/visualEdge.cpp
+)
+target_link_libraries(visualEdge
+    roadnetworkkit
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+)
+
+install(TARGETS mapMatch timedPathDraw t-driver-statistics drawAllCrossInfo visualEdge
     RUNTIME DESTINATION workspace
 )
 

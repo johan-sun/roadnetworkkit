@@ -22,7 +22,7 @@ inline static double normal(GpsPoint const& gps, Candidate const& cp, double mea
     return n;
 }
 
-static double weightSpeed(Path const& path, RoadMap const& map){
+double weightSpeed(Path const& path, RoadMap const& map){
     struct SpeedGetter : public b::static_visitor<double>{
         RoadMap const& map;
         SpeedGetter(RoadMap const& map):map(map){}

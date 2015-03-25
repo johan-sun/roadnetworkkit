@@ -1,3 +1,4 @@
+#include "bj-road-epsg3785/bj_road_epsg3785.h"
 #ifndef ROADMAP_H
 #define ROADMAP_H
 #include <vector>
@@ -80,7 +81,7 @@ public:
 
     RoadMap():edgeWeightMap(*this, "GEO_LENGTH"),shortestPathStrategy(AStar){}
 
-    template<typename Picker = NoPropertiesPicker, typename Checker = GeometryChecker>
+    template<typename Picker = BJRoadEpsg3785IDPicker, typename Checker = BJRoadEpsg3785CrossIDChecker>
     bool load(std::string const& shpFile, Picker picker = Picker(), Checker checker = Checker()){
         bool succ = Map::load(shpFile, picker, checker);
         if ( ! succ ){

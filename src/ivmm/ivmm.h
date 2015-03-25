@@ -116,4 +116,7 @@ private:
     RoadMap const* _map;
 };
 
+
+double weightSpeed(Path const& path, RoadMap const& map);
+
 #endif  /*IVMM_H*/
