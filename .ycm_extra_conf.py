@@ -85,6 +85,8 @@ compile_flags_dict = {
     '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../lib/c++/v1',
     '-I',
     'src',
+    '-I',
+    '/usr/include/mysql++',
     ],
 'command':#str tuple, list
     [

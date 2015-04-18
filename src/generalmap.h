@@ -51,6 +51,7 @@ struct RoadSegment{
     Direction direction;
     Linestring geometry;
     pt::ptree properties;///< user stored properties
+    //std::unordered_map<string, boost::any> properties;
 };
 
 /// \brief 通过几何来判断顶点是否添加
@@ -328,6 +329,16 @@ public:
             return findRoadForward(end, start);
         }
         return rst;
+    }
+
+    size_t roadSize()const{
+        return _roadsegment.size();
+    }
+    size_t crossSize()const{
+        return _cross.size();
+    }
+    size_t edgeSize()const{
+        return b::num_edges(graph);
     }
     virtual ~Map()=default;
 

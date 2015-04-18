@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 2.8)
 project (roadnetworkkit)
 
 #find_package(PythonLibs REQUIRED)
-find_package(Boost REQUIRED COMPONENTS unit_test_framework program_options filesystem system thread)
+find_package(Boost REQUIRED COMPONENTS unit_test_framework program_options filesystem system thread date_time regex)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g")
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
-include_directories(src)
+include_directories(src /usr/include/mysql /usr/include/mysql++)
 
 add_library(roadnetworkkit STATIC
     src/generalmap.cpp
@@ -14,10 +14,13 @@ add_library(roadnetworkkit STATIC
     src/gps.cpp
     src/ivmm/ivmm.cpp
     src/time_estimate.cpp
+    src/path-restore/HighLevelMap.cpp
 )
 
 target_link_libraries(roadnetworkkit
     shp
+    mysqlclient
+    mysqlpp
 )
 
 add_executable(test_
@@ -95,11 +98,42 @@ target_link_libraries(visualEdge
     ${Boost_FILESYSTEM_LIBRARY}
 )
 
-install(TARGETS mapMatch timedPathDraw t-driver-statistics drawAllCrossInfo visualEdge
+add_executable(vecluster
+    src/T-driver/VECluster.cpp
+)
+target_link_libraries(vecluster
+    mysqlpp
+    mysqlclient
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+)
+
+add_executable(generateHighLevelMap
+    src/tools/generateShp.cpp
+)
+
+target_link_libraries(generateHighLevelMap
+    shp
+    mysqlpp
+    mysqlclient
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+)
+
+add_executable(testhmap
+    src/test/testhighlevelmap.cpp
+)
+target_link_libraries(testhmap
+    roadnetworkkit
+    ${Boost_SYSTEM_LIBRARY}
+)
+install(TARGETS mapMatch timedPathDraw t-driver-statistics drawAllCrossInfo visualEdge vecluster
     RUNTIME DESTINATION workspace
 )
 
-install(TARGETS test_ testivmm testroadmap
+install(TARGETS test_ testivmm testroadmap testhmap
     RUNTIME DESTINATION test
 )
 
