@@ -1,10 +1,15 @@
 //auto-include {{{
 #include <boost/range/algorithm.hpp>
 #include <mysql++.h>
+#include <boost/heap/fibonacci_heap.hpp>
+#include <boost/pool/pool_alloc.hpp>
+#include <boost/pool/object_pool.hpp>
+#include <boost/range/algorithm_ext/push_back.hpp>
+#include <list>
+#include <boost/algorithm/cxx11/any_of.hpp>
 #include    "HighLevelMap.h"
 //}}}
-using namespace boost::posix_time;
-using namespace std;
+using namespace boost::posix_time; using namespace std;
 struct VirtualEdgeWeight::Impl
 {
     struct P{
@@ -44,8 +49,11 @@ VirtualEdgeWeight::VirtualEdgeWeight(string const& str):_pimpl(new Impl)
 time_duration VirtualEdgeWeight::operator()(time_duration const& timeOfDay)const
 {
     if ( timeOfDay > hours(24) ) throw invalid_argument("not valided time duration");
-    return boost::lower_bound(_pimpl->partten, timeOfDay, 
-            [](Impl::P const& p, time_duration const& t){ return p.begin < t; })->cost;
+    auto it = boost::lower_bound(_pimpl->partten, timeOfDay, 
+            [](Impl::P const& p, time_duration const& t){ return p.begin < t; });
+    if ( it == _pimpl->partten.end() )
+        --it;
+    return it->cost;
 }
 
 
@@ -110,6 +118,7 @@ bool HighLevelMap::load(std::string const& shp, char const* server, char const* 
     }
     buildGraph();
     mapCrossProperty<int>("ID");
+    mapRoadsegmentProperty<int>("METADATA-ID");
     try
     {
         _roadWeight.resize(roadSize());
@@ -167,9 +176,169 @@ HighLevelMap::OutIter HighLevelMap::outRoadIncludeTmp(int crossIndex)const
     return OutIter(*this, crossIndex);
 }
 
-VirtualEdgeWeight HighLevelMap::weightOrTmpOne(int index)
+VirtualEdgeWeight HighLevelMap::weightOrTmpOne(int index)const
 {
-    if ( index > 0 && index < _roadWeight.size() ) return _roadWeight[index];
+    if ( index >= 0 && index < _roadWeight.size() ) return _roadWeight[index];
     return _tmpRoad.at(index - roadSize()).weight;
 }
 
+
+struct DijkstraNode
+{
+    DijkstraNode(int cross, time_duration const& t, DijkstraNode * pre = nullptr)
+        :pre(pre), time(t), cur(cross){}
+    DijkstraNode* pre;
+    time_duration time;
+    int cur; 
+};
+
+struct TimeGreater
+{
+    bool operator()(DijkstraNode const* a, DijkstraNode const* b)const
+    {
+        return a->time > b->time;
+    }
+};
+
+vector<HighLevelMap::TimedCross> HighLevelMap::shortestPath(int indexA, time_duration const& time, 
+        int indexB,
+        unordered_set<int> const& deleteEdges
+        )const
+{
+    //cout << cross(indexA).properties.get<int>("ID") << 
+    //    " @ " << time << " to " << cross(indexB).properties.get<int>("ID") << endl;
+    using namespace boost::heap;
+    typedef fibonacci_heap<DijkstraNode *, boost::heap::allocator<boost::pool_allocator<DijkstraNode *> >,
+        compare<TimeGreater> > Queue;
+    Queue queue;
+    boost::object_pool<DijkstraNode> pool;
+    vector<TimedCross> path;
+    unordered_map<int, Queue::handle_type> open;
+    open[indexA] = queue.push(pool.construct(indexA, time));
+    unordered_set<int> close;
+    while( !queue.empty() )
+    {
+        DijkstraNode * top = queue.top();
+        queue.pop();
+        close.insert(top->cur);
+        //cout << "top:" << cross(top->cur).properties.get<int>("ID") <<  " @ " << top->time << endl;
+        if( top->cur == indexB )
+        {
+            while( top )
+            {
+                TimedCross tc;
+                tc.crossIndex = top->cur;
+                tc.time = top->time;
+                path.push_back(tc);
+                top = top->pre;
+            }
+            boost::reverse(path);
+            return path;
+        }
+        for(auto& each : outRoadRangeIncludeTmp(top->cur))
+        {
+            //cout << "in for" << endl;
+            time_duration t = top->time + weightOrTmpOne(each.roadIndex());
+            //cout << t << endl;
+            if (close.count(each.crossIndex()) || deleteEdges.count(each.roadIndex())) continue;
+            if ( open.count(each.crossIndex()) )
+            {
+                Queue::handle_type h = open[each.crossIndex()];
+                DijkstraNode* node = *h;
+                if ( t < node->time )
+                {
+                    node->time = t;
+                    node->pre =top;
+                    //cout << "road:" << each.roadIndex() << endl;
+                    //cout << weightOrTmpOne(each.roadIndex());
+                    //cout <<"update:" << cross(node->cur).properties.get<int>("ID") << " @ " << t << endl;
+                    queue.update_lazy(h);
+                }
+            }else
+            {
+                //cout << "road:" << each.roadIndex() << endl;
+                //cout << weightOrTmpOne(each.roadIndex());
+                //cout <<"push:" << cross(each.crossIndex()).properties.get<int>("ID") << " @ " << t << endl;
+                open[each.crossIndex()] = queue.push(pool.construct(each.crossIndex(), t, top));
+            }
+        }
+    }
+    return path;
+}
+
+
+struct KShortestPathGenerator::Impl
+{
+    Impl(HighLevelMap const& m, int a, time_duration const& t, int b):map(m),index1(a),index2(b),time(t){}
+    HighLevelMap const& map;
+    list<vector<HighLevelMap::TimedCross> > topk;
+    int index1;
+    int index2;
+    time_duration time;
+};
+
+KShortestPathGenerator::KShortestPathGenerator(HighLevelMap const& map, int index1, time_duration const& t, int index2)
+    :_pimpl(new Impl(map, index1, t, index2))
+{}
+
+
+int findEdge(HighLevelMap const& map, int indexA, int indexB)
+{
+    for(auto& p : map.outRoadRangeIncludeTmp(indexA) )
+    {
+        if ( p.crossIndex() == indexB )
+            return p.roadIndex();
+    }
+    assert(1);
+}
+
+vector<HighLevelMap::TimedCross>const* KShortestPathGenerator::nextPath()
+{
+    typedef vector<HighLevelMap::TimedCross> TimedCrossVec;
+    HighLevelMap const& map = _pimpl->map;
+    auto& topk = _pimpl->topk;
+    if ( _pimpl->topk.empty() )
+    {
+        topk.push_back(map.shortestPath(_pimpl->index1, _pimpl->time, _pimpl->index2));
+    }else
+    {
+        list<TimedCrossVec> currentRoundPath;
+        unordered_set<int> deleteEdges;
+        auto& lastPath = topk.back();
+        TimedCrossVec root;
+        //K
+        for(size_t i  = 0; i + 1u < lastPath.size(); ++i)
+        {
+            root.push_back(lastPath[i]);
+            int curIdx = lastPath[i].crossIndex;
+            for(auto& path : topk)
+            {
+                if ( boost::starts_with(path, root) )
+                {
+                    deleteEdges.insert(findEdge(map, curIdx, path[i+1].crossIndex));
+                }
+            }
+
+            auto isNotInDeleteEdge = [&deleteEdges](RoadIndexCrossIndexPair const& pair){
+                return !deleteEdges.count(pair.roadIndex());
+            };
+            if ( boost::algorithm::any_of(map.outRoadRangeIncludeTmp(curIdx), isNotInDeleteEdge))
+            {
+                auto super = map.shortestPath(curIdx, lastPath[i].time, _pimpl->index2, deleteEdges);
+                if (! super.empty() )
+                {
+                    TimedCrossVec newPath(begin(root), prev(end(root)));
+                    boost::push_back(newPath, super);
+                    currentRoundPath.push_back(std::move(newPath));
+                }
+            }
+        }
+        if ( currentRoundPath.empty() )
+            return nullptr;
+        auto it = boost::min_element(currentRoundPath,[](TimedCrossVec const& a, TimedCrossVec const& b){
+                 return a.back().time < b.back().time;
+                });
+        topk.push_back(std::move(*it));
+    }
+    return &topk.back();
+}

@@ -7,6 +7,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/range.hpp>
 #include <boost/iterator_adaptors.hpp>
+#include <unordered_set>
 #include    "generalmap.h"
 //}}}
 
@@ -22,7 +23,7 @@ public:
         return operator()(time.time_of_day());
     }
     operator bool ()const{
-        return !!_pimpl.get();
+        return _pimpl.get();
     }
     void displayTo(std::ostream& o)const;
 private:
@@ -80,8 +81,12 @@ public:
     
     Cross const& addTmpCross(int ID, double x, double y);
     RoadSegment const& addTmpVirtualEdge(int crossStartIndex, int crossEndIndex, VirtualEdgeWeight const& weight);
+
     OutIter outRoadIncludeTmp(int crossIndex)const;
-    VirtualEdgeWeight weightOrTmpOne(int index);
+    boost::iterator_range<OutIter> outRoadRangeIncludeTmp(int crossIndex)const;
+
+
+    VirtualEdgeWeight weightOrTmpOne(int index)const;
     void clearTmp(){
         _tmpCross.clear();
         _tmpCrossIDIndexMap.clear();
@@ -91,6 +96,25 @@ public:
 
     boost::function_property_map<WeightGetter, GraphTraits::edge_descriptor, VirtualEdgeWeight>
         virtualEdgeWeightProperty;
+
+    struct TimedCross : public boost::equality_comparable<TimedCross>
+    {
+        int crossIndex;
+        boost::posix_time::time_duration time;
+        bool operator==(TimedCross const& t)const
+        {
+            return crossIndex == t.crossIndex && time == t.time;
+        }
+    };
+
+    inline std::vector<TimedCross> 
+        shortestPath(int indexA, boost::posix_time::time_duration const& time,  int indexB)const{
+            std::unordered_set<int> noDelete;
+            return shortestPath(indexA, time, indexB, noDelete);
+        }
+    std::vector<TimedCross> 
+        shortestPath(int indexA, boost::posix_time::time_duration const& time,  int indexB, 
+                std::unordered_set<int> const& deleteEdges)const;
 
 private:
     struct TmpRoad{
@@ -170,4 +194,20 @@ private:
     }
 };
 
+inline boost::iterator_range<HighLevelMap::OutIter> HighLevelMap::outRoadRangeIncludeTmp(int crossIndex)const
+{
+    OutIter end;
+    return boost::make_iterator_range(outRoadIncludeTmp(crossIndex), end);
+}
+
+
+class KShortestPathGenerator
+{
+public:
+    KShortestPathGenerator(HighLevelMap const& map, int index1, boost::posix_time::time_duration const& t, int index2);
+    std::vector<HighLevelMap::TimedCross> const* nextPath();
+private:
+    struct Impl;
+    std::shared_ptr<Impl> _pimpl;
+};
 #endif  /*HIGHLEVELMAP_H*/

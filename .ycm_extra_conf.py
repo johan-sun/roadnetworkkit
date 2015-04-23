@@ -86,6 +86,8 @@ compile_flags_dict = {
     '-I',
     'src',
     '-I',
+    '/usr/include/mysql',
+    '-I',
     '/usr/include/mysql++',
     ],
 'command':#str tuple, list
