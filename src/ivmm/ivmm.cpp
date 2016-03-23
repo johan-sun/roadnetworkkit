@@ -2,12 +2,15 @@
 #include <shapefil.h>
 #include <boost/range/algorithm.hpp>
 #include <boost/phoenix.hpp>
+#include  <boost/property_tree/ptree.hpp>
+#include  <boost/property_tree/ini_parser.hpp>
 #include "ivmm/ivmm.h"
 #include "gps.h"
 #include "util.h"
 //}}}
 using namespace std;
-using namespace b::phoenix::arg_names;
+namespace lambda = b::phoenix::arg_names;
+namespace pt = b::property_tree;
 
 static double oo = numeric_limits<double>::infinity();
 
@@ -22,18 +25,18 @@ inline static double normal(GpsPoint const& gps, Candidate const& cp, double mea
     return n;
 }
 
-double weightSpeed(Path const& path, RoadMap const& map){
+double weight_speed(Path const& path, RoadMap const& map){
     struct SpeedGetter : public b::static_visitor<double>{
         RoadMap const& map;
         SpeedGetter(RoadMap const& map):map(map){}
 
         double operator()(ARoadSegment const& ars)const{
-            RoadSegment const& rs = map.roadsegment(ars.roadsegmentIndex);
+            RoadSegment const& rs = map.roadsegment(ars.roadsegment_index);
             return rs.properties.get<double>("SPEED");
         }
 
         double operator()(PartOfRoad const& pr)const{
-            RoadSegment const& rs = map.roadsegment(pr.roadsegmentIndex);
+            RoadSegment const& rs = map.roadsegment(pr.roadsegment_index);
             return rs.properties.get<double>("SPEED");
         }
 
@@ -57,7 +60,7 @@ double weightSpeed(Path const& path, RoadMap const& map){
     };
 
 
-    double d = path.totalLength();
+    double d = path.total_length();
     double weightSpeed = 0;
     for(auto& e : path.entities){
         weightSpeed += b::apply_visitor(LengthGetter(), e) / d * b::apply_visitor(SpeedGetter(map), e);
@@ -78,22 +81,22 @@ static void initPre(
 IVMM::VVector<Candidate> IVMM::candidates(std::vector<GpsPoint> const &log) const{
     VVector<Candidate> candidates;
     candidates.resize(log.size());
-    for(int i = 0; i < log.size(); ++i){
-        double r = param.candidateQueryRadious;
-        vector<int> roadIdx = _map->queryRoad(log[i].geometry, r);
+    for(size_t i = 0; i < log.size(); ++i){
+        double r = param.candidate_query_radious;
+        vector<int> roadIdx = map_->query_road(log[i].geometry, r);
         while (roadIdx.empty()){
             r *= 1.1;
-            roadIdx = _map->queryRoad(log[i].geometry, r);
+            roadIdx = map_->query_road(log[i].geometry, r);
         }
 
         for(int ri : roadIdx){
-            RoadSegment const& rs = _map->roadsegment(ri);
+            RoadSegment const& rs = map_->roadsegment(ri);
             Candidate c;
             c.vote = 0;
             c.fvalue = 0.0;
-            c.point = makeProjectPoint(log[i].geometry, rs);//projectPoint(log[i], r.geometry);
+            c.point = make_project_point(log[i].geometry, rs);//projectPoint(log[i], r.geometry);
             vector<Candidate> & can = candidates[i];
-            if ( can.size() < param.candidateLimit &&
+            if ( static_cast<int>(can.size()) < param.candidate_limit &&
                     ( can.empty() || !bg::equals(c.point.geometry, can.back().point.geometry))){
                 can.push_back(std::move(c));
             }
@@ -137,9 +140,9 @@ static void initVVV(IVMM::VVVector<V> & vvv, IVMM::VVVector<P> const& p){
 IVMM::VVector<double> IVMM::normal(std::vector<GpsPoint> const &log, IVMM::VVector<Candidate> const &candidates) const {
     VVector<double> n;
     initVV(n, candidates);
-    for(int i = 0; i < candidates.size(); ++i){
-        for(int j = 0; j < candidates[i].size(); ++j){
-            n[i][j] = ::normal(log[i], candidates[i][j], param.projectDistMean, param.projectDistStddev);
+    for(size_t i = 0; i < candidates.size(); ++i){
+        for(size_t j = 0; j < candidates[i].size(); ++j){
+            n[i][j] = ::normal(log[i], candidates[i][j], param.project_dist_mean, param.project_dist_stddev);
         }
     }
 
@@ -149,13 +152,13 @@ IVMM::VVector<double> IVMM::normal(std::vector<GpsPoint> const &log, IVMM::VVect
 IVMM::VVVector<Path> IVMM::paths(IVMM::VVector<Candidate> const &candidates) const {
     VVVector<Path> paths;
     initVVV(paths, candidates);
-    for(int i = 1; i < candidates.size(); ++i){
+    for(size_t i = 1; i < candidates.size(); ++i){
         int srcGps = i - 1;
         int destGps = i;
-        for(int srcCand = 0; srcCand < candidates[srcGps].size(); ++srcCand){
-            for(int destCand = 0; destCand < candidates[destGps].size(); ++destCand){
+        for(size_t srcCand = 0; srcCand < candidates[srcGps].size(); ++srcCand){
+            for(size_t destCand = 0; destCand < candidates[destGps].size(); ++destCand){
                 paths[srcGps][srcCand][destCand] =
-                        _map->shortestPath(candidates[srcGps][srcCand].point,
+                        map_->shortest_path(candidates[srcGps][srcCand].point,
                                 candidates[destGps][destCand].point);
             }
         }
@@ -163,7 +166,7 @@ IVMM::VVVector<Path> IVMM::paths(IVMM::VVector<Candidate> const &candidates) con
     return paths;
 }
 
-double IVMM::findSequence(
+double IVMM::find_sequence(
         vector<int> &seq,
         IVMM::VVector<double> const &n,
         IVMM::VVVector<Detail> const& vft,
@@ -217,7 +220,7 @@ double IVMM::findSequence(
                 }
             }
         }
-        if (b::all(f, arg1 == -oo) ){
+        if (b::all(f, lambda::arg1 == -oo) ){
             return -1;
         }
     }
@@ -247,7 +250,7 @@ static pair<int, int> window(int i, int w, int sz){
     return { begin, end};
 }
 
-bool IVMM::mapMatch(vector<GpsPoint> const &log,
+bool IVMM::map_match(vector<GpsPoint> const &log,
         VVector<double> & n,
         VVVector<Detail> &details,
         VVVector<Path>& paths,
@@ -269,7 +272,7 @@ bool IVMM::mapMatch(vector<GpsPoint> const &log,
         int badConnection = 0;
         for(int k = 0; k < candidates[i].size(); ++k){
             vector<int> sequence;
-            double fvalue = findSequence(sequence, n, details, log,w ,candidates, i, k, begin, end);
+            double fvalue = find_sequence(sequence, n, details, log,w ,candidates, i, k, begin, end);
             if ( fvalue < 0){
                 ++badConnection;
             }else{
@@ -306,12 +309,12 @@ IVMM::VVVector<Detail> IVMM::detail(std::vector<GpsPoint> const &log, IVMM::VVVe
             for(int destCand = 0; destCand < paths[srcGps][srcCand].size(); ++destCand){
                 Detail & detail = details[srcGps][srcCand][destCand];
                 Path const& path = paths[srcGps][srcCand][destCand];
-                double pathLength = path.totalLength();
+                double pathLength = path.total_length();
                 double d = distanceOfTowGps + 1;
                 double l = pathLength + 1;
                 detail.v = path.valid()? min((d/l)*(d/l), sqrt(l/d)) : -oo;
 
-                double weightSpeed = pathLength == 0? 0 : ::weightSpeed(path, *_map);
+                double weightSpeed = pathLength == 0? 0 : ::weight_speed(path, *map_);
                 double avgSpeed = pathLength / timeInterval;
 
                 if  ( weightSpeed == 0 ) {
@@ -321,11 +324,11 @@ IVMM::VVVector<Detail> IVMM::detail(std::vector<GpsPoint> const &log, IVMM::VVVe
                 }
 
                 //=============
-                detail.weightSpeed = weightSpeed;
-                detail.avgSpeed = avgSpeed;
-                detail.pathLength = pathLength;
-                detail.timeInteval = timeInterval;
-                detail.twoGpsDistance = distanceOfTowGps;
+                detail.weight_speed = weightSpeed;
+                detail.avg_speed = avgSpeed;
+                detail.path_length = pathLength;
+                detail.time_inteval = timeInterval;
+                detail.two_gps_distance = distanceOfTowGps;
             }
         }
     }
@@ -341,7 +344,7 @@ void IVMM::initW(std::vector<double> &w, std::vector<GpsPoint> const &log, int b
     }
 }
 
-bool IVMM::stMatch(
+bool IVMM::st_match(
         std::vector<GpsPoint> const &log,
         IVMM::VVector<double> &n,
         IVMM::VVVector<Detail> &details,
@@ -354,20 +357,20 @@ bool IVMM::stMatch(
     n = normal(log, candidates);
     details = this->detail(log, paths);
     vector<double> w(log.size() - 1, 1.0);
-    if (findSequence(finalCand, n, details, log, w, candidates, -1, -1, 0, log.size()) < 0){
+    if (find_sequence(finalCand, n, details, log, w, candidates, -1, -1, 0, log.size()) < 0){
         return false;
     }
     return true;
 }
 
-vector<Path> IVMM::mapMatch(std::vector<GpsPoint> const& log)const{
+vector<Path> IVMM::map_match(std::vector<GpsPoint> const& log)const{
     vector<Path> finalPath;
     VVector<double> n;
     VVVector<Detail> details;
     VVVector<Path> paths;
     VVector<Candidate> candidates;
     vector<int> finalCand;
-    if ( ! mapMatch(log, n, details, paths, candidates, finalCand) ){
+    if ( ! map_match(log, n, details, paths, candidates, finalCand) ){
         return finalPath;
     }
     for(int i = 0; i < paths.size(); ++i){
@@ -378,13 +381,13 @@ vector<Path> IVMM::mapMatch(std::vector<GpsPoint> const& log)const{
     return finalPath;
 }
 
-void IVMM::drawPathsToShp(
+void IVMM::draw_paths_to_shp(
         char const* output,
         vector<int> const& finalCand, 
         IVMM::VVVector<Path> const& paths,
         IVMM::VVVector<Detail> const& details, 
         IVMM::VVector<double> const& n)const{
-    RoadMap const& bjRoad = *_map;
+    RoadMap const& bjRoad = *map_;
     SHPHandle shp = SHPCreate(output, SHPT_ARC);
     DBFHandle dbf = DBFCreate(output);
     DBFAddField(dbf, "ID", FTInteger, 10, 0);
@@ -422,12 +425,12 @@ void IVMM::drawPathsToShp(
                 DBFWriteIntegerAttribute(dbf, id, 2, c1);
                 DBFWriteIntegerAttribute(dbf, id, 3, g+1);
                 DBFWriteIntegerAttribute(dbf, id, 4, c2);
-                DBFWriteDoubleAttribute(dbf, id, 5, detail.pathLength);
-                DBFWriteDoubleAttribute(dbf, id, 6, detail.twoGpsDistance);
+                DBFWriteDoubleAttribute(dbf, id, 5, detail.path_length);
+                DBFWriteDoubleAttribute(dbf, id, 6, detail.two_gps_distance);
                 DBFWriteDoubleAttribute(dbf, id, 7, detail.v);
-                DBFWriteIntegerAttribute(dbf, id, 8, detail.timeInteval);
-                DBFWriteDoubleAttribute(dbf, id, 9, detail.avgSpeed);
-                DBFWriteDoubleAttribute(dbf, id, 10, detail.weightSpeed);
+                DBFWriteIntegerAttribute(dbf, id, 8, detail.time_inteval);
+                DBFWriteDoubleAttribute(dbf, id, 9, detail.avg_speed);
+                DBFWriteDoubleAttribute(dbf, id, 10, detail.weight_speed);
                 DBFWriteDoubleAttribute(dbf, id, 11, detail.ft);
                 DBFWriteDoubleAttribute(dbf, id, 12, detail.v * detail.ft * n[g+1][c2]);
                 DBFWriteDoubleAttribute(dbf, id, 13, n[g+1][c2]);
@@ -439,8 +442,8 @@ void IVMM::drawPathsToShp(
     SHPClose(shp);
 }
 
-vector<Path> IVMM::mapMatchSafe(vector<GpsPoint> const& log, vector<pair<int, int> >& ranges)const{
-    vector<Path> paths = mapMatch(log);
+vector<Path> IVMM::map_match_s(vector<GpsPoint> const& log, vector<pair<int, int> >& ranges)const{
+    vector<Path> paths = map_match(log);
     if ( paths.empty() ){
         return paths;
     }
@@ -454,4 +457,22 @@ vector<Path> IVMM::mapMatchSafe(vector<GpsPoint> const& log, vector<pair<int, in
         gpsBegin = log.begin() + distance(paths.begin(), pathBegin);
     }
     return paths;
+}
+
+boost::optional<IVMMParam> IVMMParam::load_config(std::string const& filename) {
+    pt::ptree pt;
+    IVMMParam param;
+    try{
+        pt::read_ini(filename, pt);
+        param.project_dist_mean = pt.get<double>("IVMM.projectDistMean");
+        param.project_dist_stddev = pt.get<double>("IVMM.projectDistStddev");
+        param.candidate_query_radious = pt.get<double>("IVMM.candidateQueryRadious");
+        param.candidate_limit = pt.get<int>("IVMM.candidateLimit");
+        param.beta = pt.get<double>("IVMM.beta");
+        param.window = pt.get<int>("IVMM.window");
+    }catch(std::exception const& e){
+        std::cerr << e.what() << endl;
+        return boost::none;
+    }
+    return param;
 }

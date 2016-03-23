@@ -5,19 +5,19 @@
 struct BJRoadEpsg3785CrossIDChecker{
     const static int FrontCrossIDField = 18;
     const static int BackCrossIDField = 19;
-    bool crossIsNew(CrossPosInRoad pos, Point const& /*p*/, RoadSegment const&/*r*/ , DBFHandle handle, int roadIndex){
+    bool cross_is_new(CrossPosInRoad pos, Point const& /*p*/, RoadSegment const&/*r*/ , DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
         return IDIndexMap.count(id) == 0;
     }
 
-    void storeIndex(CrossPosInRoad pos, Point const& /*p*/, int crossIndex, RoadSegment const& /*r*/, DBFHandle handle, int roadIndex){
+    void store_index(CrossPosInRoad pos, Point const& /*p*/, int crossIndex, RoadSegment const& /*r*/, DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
         IDIndexMap[id] = crossIndex;
     }
 
-    int getIndex(CrossPosInRoad pos, Point const& /*p*/, RoadSegment const& /*r*/, DBFHandle handle, int roadIndex){
+    int get_index(CrossPosInRoad pos, Point const& /*p*/, RoadSegment const& /*r*/, DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
         return IDIndexMap.at(id);
@@ -32,7 +32,7 @@ struct BJRoadEpsg3785IDPicker{
     const static int IDField = 2;
     const static int DirectionField = 6;
     const static int PathClassField = 20;
-    Direction pickRoadsegment(pt::ptree & properties, DBFHandle handle, int roadIndex){
+    Direction pick_roadsegment(pt::ptree & properties, DBFHandle handle, int roadIndex){
         std::string ID = DBFReadStringAttribute(handle, roadIndex, IDField);
         int direction = atoi(DBFReadStringAttribute(handle, roadIndex, DirectionField));
         int path_class = atoi(DBFReadStringAttribute(handle, roadIndex, PathClassField));
@@ -48,7 +48,7 @@ struct BJRoadEpsg3785IDPicker{
                 speed = 40 / 3.6;
         }
         properties.put("SPEED", speed);
-        properties.put("ID", ID);
+        properties.put("SID", ID);
         enum Direction dir = Bidirection;
         if ( direction == 2 ){
             dir = Forward;
@@ -57,10 +57,10 @@ struct BJRoadEpsg3785IDPicker{
         }
         return dir;
     }
-    void pickCross(CrossPosInRoad pos, pt::ptree& properties, DBFHandle handle, int roadIndex){
+    void pick_cross(CrossPosInRoad pos, pt::ptree& properties, DBFHandle handle, int roadIndex){
         int Field = pos == Front ? FrontCrossIDField : BackCrossIDField;
         std::string id = DBFReadStringAttribute(handle, roadIndex, Field);
-        properties.put("ID", id);
+        properties.put("SID", id);
     }
 };
 

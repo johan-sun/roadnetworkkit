@@ -14,10 +14,12 @@
 #include <iostream>
 #include <boost/lockfree/queue.hpp>
 #include <boost/thread.hpp>
+#include <boost/program_options.hpp>
 #include "sutil/key_visitor.hpp"
 //}}}
 using namespace boost::posix_time;
 using namespace std;
+namespace po = boost::program_options;
 struct Record
 {
     unsigned long long id;
@@ -332,14 +334,18 @@ int main(int argc, char *argv[])
     try
     {
         mysqlpp::examples::CommandLine cmd(argc, argv);
+        if(cmd.extra_args().size() != 1)
+        {
+            cerr << "need extra typeid after mysql options"  << endl;
+            return 1;
+        }
         mysqlpp::Connection con("path_restore", cmd.server(), cmd.user(), cmd.pass());
         mysqlpp::Transaction tan(con);
-        mysqlpp::Query q = con.query("SELECT `id` FROM `virtual_edge_metadata`");
+        mysqlpp::Query q = con.query("SELECT `id` FROM `virtual_edge_metadata` WHERE type = %0");
+        q.parse();
         mysqlpp::Query uq = con.query("SELECT `id`, `enter`, `cost` FROM `virtual_edge_data` WHERE `metadata_id` = %0");
-        mysqlpp::Query update = con.query("UPDATE `virtual_edge_data` SET `vclass` = %0, `eclass` = %1 WHERE `id` = %2");
         uq.parse();
-        update.parse();
-        mysqlpp::StoreQueryResult metaIDs = q.store();
+        mysqlpp::StoreQueryResult metaIDs = q.store(cmd.extra_args()[0]);
         boost::thread_group procGroud;
         boost::thread output(&updateMysql, boost::ref(con));
         for(size_t i = 0; i < boost::thread::hardware_concurrency(); ++i)

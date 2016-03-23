@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_SUITE(roadmap_test)
         b::transform(line, back_inserter(y), [](Point const& p){ return p.y(); });
         SHPObject* l = SHPCreateSimpleObject(SHPT_ARC, line.size(), &x[0], &y[0], nullptr);
         int id = SHPWriteObject(shp, -1, l);
-        DBFWriteDoubleAttribute(dbf, id , 0 , path.totalLength());
+        DBFWriteDoubleAttribute(dbf, id , 0 , path.total_length());
         SHPDestroyObject(l);
         SHPClose(shp);
         DBFClose(dbf);
@@ -52,11 +52,11 @@ BOOST_AUTO_TEST_SUITE(roadmap_test)
 
     BOOST_AUTO_TEST_CASE(basic_roadmap){
         BOOST_REQUIRE( bjRoad.load("../data/map/bj-road-epsg3785", BJRoadEpsg3785IDPicker(), BJRoadEpsg3785CrossIDChecker()));
-        vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/96894/96894-0.txt");
+        vector<GpsPoint> log = load_from_file("../data/bj-gps-after-prepare/20121101/96894/96894-0.txt");
         RoadSegment const& r = bjRoad.roadsegment(83294);
-        ProjectPoint p = makeProjectPoint(log[0], r);
-        PartOfRoad pr1 = makePartOfRoad(p, r.geometry.front(), r);
-        PartOfRoad pr2 = makePartOfRoad(p, r.geometry.back(), r);
+        ProjectPoint p = make_project_point(log[0], r);
+        PartOfRoad pr1 = make_part_of_road(p, r.geometry.front(), r);
+        PartOfRoad pr2 = make_part_of_road(p, r.geometry.back(), r);
         Linestring line1 = geometry(pr1, r);
         Linestring line2 = geometry(pr2, r);
         vector<double> x;
@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_SUITE(roadmap_test)
             double y;
             x = p.x();
             y = p.y();
-            ProjectPoint pp = bjRoad.nearestProject(p);
+            ProjectPoint pp = bjRoad.nearest_project(p);
             SHPObject* point = SHPCreateSimpleObject(SHPT_POINT, 1, &x, &y, nullptr);
             DBFWriteStringAttribute(dbf,SHPWriteObject(shp, -1, point), 0, "...");
             SHPDestroyObject(point);
@@ -129,16 +129,17 @@ BOOST_AUTO_TEST_SUITE(roadmap_test)
         dijkstra.restart();
         dijkstraPath = bjRoad.shortestPathDijkstra(a, b);
         cout << "dijkstra " << dijkstra.elapsed() << "s" << endl;
-        cout << bglPath.totalLength() << " " << astarPath.totalLength() << " " << dijkstraPath.totalLength() << endl;*/
+        cout << bglPath.total_length() << " " << astarPath.total_length() << " " << dijkstraPath.total_length() << endl;*/
+        /*
         double x1,y1;
         double x2,y2;
         while ( cin >> x1 >> y1 >> x2 >> y2 ){
-            ProjectPoint p1 = bjRoad.nearestProject({x1, y1});
-            ProjectPoint p2 = bjRoad.nearestProject({x2, y2});
-            Path path = bjRoad.shortestPath(p1, p2);
+            ProjectPoint p1 = bjRoad.nearest_project({x1, y1});
+            ProjectPoint p2 = bjRoad.nearest_project({x2, y2});
+            Path path = bjRoad.shortest_path(p1, p2);
             drawPath("SHORTEST_PATH", path);
-            cout << path.totalLength() << endl;
-        }
+            cout << path.total_length() << endl;
+        }*/
     }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -3,76 +3,76 @@
 #include "generalmap.h"
 //}}} 
 using namespace std;
-void Map::_index(){
-    crossIndex = PointRTree(bgi::dynamic_quadratic(_cross.size()));
-    for(auto& c : _cross){
-        crossIndex.insert({c.geometry, c.index});
+void Map::index_(){
+    cross_rtree = PointRTree(bgi::dynamic_quadratic(cross_.size()));
+    for(auto& c : cross_){
+        cross_rtree.insert({c.geometry, c.index});
     }
 
 
-    roadsegmentRTree = RoadSegmentRTree(bgi::dynamic_quadratic(_roadsegment.size()));
-    for(auto& r : _roadsegment){
+    roadsegment_rtree = RoadSegmentRTree(bgi::dynamic_quadratic(roadsegment_.size()));
+    for(auto& r : roadsegment_){
         Box bx = bg::return_envelope<Box>(r.geometry);
-        roadsegmentRTree.insert(make_pair(std::move(bx), r.index));
+        roadsegment_rtree.insert(make_pair(std::move(bx), r.index));
     }
 
-    _inRoad.resize(_cross.size());
-    _outRoad.resize(_cross.size());
-    for(auto& r : _roadsegment){
+    predecessor_road_.resize(cross_.size());
+    successor_road_.resize(cross_.size());
+    for(auto& r : roadsegment_){
         if ( r.direction & Forward ){
-            _outRoad[r.startCrossIndex].push_back({r.index, r.endCrossIndex});
-            _inRoad[r.endCrossIndex].push_back({r.index, r.startCrossIndex});
+            successor_road_[r.start_cross_index].push_back({r.index, r.end_cross_index});
+            predecessor_road_[r.end_cross_index].push_back({r.index, r.start_cross_index});
         }
         if ( r.direction & Backward ){
-            _outRoad[r.endCrossIndex].push_back({r.index, r.startCrossIndex});
-            _inRoad[r.startCrossIndex].push_back({r.index, r.endCrossIndex});
+            successor_road_[r.end_cross_index].push_back({r.index, r.start_cross_index});
+            predecessor_road_[r.start_cross_index].push_back({r.index, r.end_cross_index});
         }
     }
 }
 
-void Map::buildGraph(){
-    for(int i = 0; i < _cross.size(); ++i){
+void Map::build_graph(){
+    for(int i = 0; i < cross_.size(); ++i){
         b::add_vertex(graph);
     }
 
     GraphTraits::edge_descriptor edge;
-    for(auto& r : _roadsegment){
+    for(auto& r : roadsegment_){
         if ( r.direction & Forward ){
-            _roadEdgeMap.insert({r.index, b::add_edge(r.startCrossIndex, r.endCrossIndex, r.index,graph).first});
+            road_edge_map_.insert({r.index, b::add_edge(r.start_cross_index, r.end_cross_index, r.index,graph).first});
         }
         if ( r.direction & Backward ){
-            _roadEdgeMap.insert({r.index, b::add_edge(r.endCrossIndex, r.startCrossIndex, r.index,graph).first});
+            road_edge_map_.insert({r.index, b::add_edge(r.end_cross_index, r.start_cross_index, r.index,graph).first});
         }
     }
 }
 
-void Map::visitRoadSegment(std::function<void(RoadSegment const&r)> visitor)const{
-    b::for_each(_roadsegment, visitor);
+void Map::visit_roadsegment(std::function<void(RoadSegment const&r)> visitor)const{
+    b::for_each(roadsegment_, visitor);
 }
 
-void Map::visitRoadSegment(std::function<void(RoadSegment &r)> visitor){
-    b::for_each(_roadsegment, visitor);
+void Map::visit_roadsegment(std::function<void(RoadSegment &r)> visitor){
+    b::for_each(roadsegment_, visitor);
 }
 
-void Map::visitEdge(std::function<void(RoadSegment const&r, GraphTraits::edge_descriptor, Graph const& g)> visitor)const{
+void Map::visit_edge(std::function<void(RoadSegment const&r, GraphTraits::edge_descriptor, Graph const& g)> visitor)const{
     for(auto p = b::edges(graph); p.first != p.second; ++p.first){
         GraphTraits::edge_descriptor edge = *p.first;
-        int roadIdx = b::get(roadIndexOfEdgeTag, graph, edge);
-        visitor(_roadsegment[roadIdx], edge, graph);
+        int road_idx = b::get(IndexOfEdge, graph, edge);
+        visitor(roadsegment_[road_idx], edge, graph);
     }
 }
 
-void Map::visitEdge(std::function<void(RoadSegment &r, GraphTraits::edge_descriptor, Graph &)> visitor){
+void Map::visit_edge(std::function<void(RoadSegment &r, GraphTraits::edge_descriptor, Graph &)> visitor){
     for(auto p = b::edges(graph); p.first != p.second; ++p.first){
         GraphTraits::edge_descriptor edge = *p.first;
-        int roadIdx = b::get(roadIndexOfEdgeTag, graph, edge);
-        visitor(_roadsegment[roadIdx], edge, graph);
+        int road_idx = b::get(IndexOfEdge, graph, edge);
+        visitor(roadsegment_[road_idx], edge, graph);
     }
 }
 
-void Map::visitCross(std::function<void(Cross const&)> visitor)const{
-    b::for_each(_cross, visitor);
+void Map::visit_cross(std::function<void(Cross const&)> visitor)const{
+    b::for_each(cross_, visitor);
 }
-void Map::visitCross(std::function<void(Cross &)> visitor){
-    b::for_each(_cross, visitor);
+void Map::visit_cross(std::function<void(Cross &)> visitor){
+    b::for_each(cross_, visitor);
 }

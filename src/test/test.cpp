@@ -32,17 +32,17 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
 
     BOOST_AUTO_TEST_CASE(basic_use) {
         BOOST_REQUIRE(map.load("../data/map/bj-road-epsg3785", BJRoadEpsg3785IDPicker(), BJRoadEpsg3785CrossIDChecker()));
-        map.mapCrossProperty<string>("ID");
-        map.mapRoadsegmentProperty<string>("ID");
+        map.map_cross_property<string>("SID");
+        map.map_roadsegment_property<string>("SID");
 
-        BOOST_CHECK(map.containCross("ID", "60575200005"));
-        BOOST_CHECK(map.containRoadSegment("ID", "60575200004"));
-        BOOST_CHECK(bg::equals(map.cross("ID", "59566338038").geometry,
-                fromWKT<Point>("POINT(12962877.13440558314323425 4847075.07403475046157837)")));
-        BOOST_CHECK(bg::equals(map.roadsegment("ID", "59566308618").geometry, fromWKT<Linestring>("LINESTRING(12963151.44789479300379753 4846751.49003899563103914, 12963139.62576487474143505 4846684.77474731393158436, 12963134.49616274051368237 4846654.46518910489976406, 12963129.40663561969995499 4846627.62786234728991985, 12963122.59388278238475323 4846432.13265211507678032)")));
-        map.buildGraph();
+        BOOST_CHECK(map.contain_cross("SID", "60575200005"));
+        BOOST_CHECK(map.contain_roadsegment("SID", "60575200004"));
+        BOOST_CHECK(bg::equals(map.cross("SID", "59566338038").geometry,
+                from_wkt<Point>("POINT(12962877.13440558314323425 4847075.07403475046157837)")));
+        BOOST_CHECK(bg::equals(map.roadsegment("SID", "59566308618").geometry, from_wkt<Linestring>("LINESTRING(12963151.44789479300379753 4846751.49003899563103914, 12963139.62576487474143505 4846684.77474731393158436, 12963134.49616274051368237 4846654.46518910489976406, 12963129.40663561969995499 4846627.62786234728991985, 12963122.59388278238475323 4846432.13265211507678032)")));
+        map.build_graph();
         Point p(12953111.5, 4846189.4);
-        Point prj = projectPoint(p, map.roadsegment(85577).geometry);
+        Point prj = project_point(p, map.roadsegment(85577).geometry);
         BOOST_CHECK( bg::equals(prj, map.cross(65774).geometry) );
         stringstream ss;
         ss << setprecision(16) << bg::wkt(prj);
@@ -50,26 +50,26 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
         bg::read_wkt(ss.str(), pp);
         BOOST_CHECK( bg::equals(prj, pp) );
 
-        Point c = fromWKT<Point>("POINT(12979268.69788035191595554 4861101.51186775788664818)");
-        Point c2 = fromWKT<Point>("POINT(12979268.69788035 4861101.511867757)");
+        Point c = from_wkt<Point>("POINT(12979268.69788035191595554 4861101.51186775788664818)");
+        Point c2 = from_wkt<Point>("POINT(12979268.69788035 4861101.511867757)");
         BOOST_CHECK(bg::equals(c, c2));
 
 
     }
 
     BOOST_AUTO_TEST_CASE(basic_query) {
-        Point c = fromWKT<Point>("POINT(12979268.69788035191595554 4861101.51186775788664818)");
+        Point c = from_wkt<Point>("POINT(12979268.69788035191595554 4861101.51186775788664818)");
         Box range100 = range_box(c, 100);
         Box range150 = range_box(c, 150);
         int correctResult1[] = {85529};
         int correctResult2[] = {85528, 85529};
         set<int> result;
-        for (auto &p : map.crossIndex | bgi::adaptors::queried(bgi::within(range100))) {
+        for (auto &p : map.cross_rtree | bgi::adaptors::queried(bgi::within(range100))) {
             result.insert(p.second);
         }
         BOOST_CHECK_EQUAL_COLLECTIONS(begin(result), end(result), begin(correctResult1), end(correctResult1));
         result.clear();
-        for (auto &p : map.crossIndex | bgi::adaptors::queried(bgi::within(range150))) {
+        for (auto &p : map.cross_rtree | bgi::adaptors::queried(bgi::within(range150))) {
             result.insert(p.second);
         }
 
@@ -79,11 +79,11 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
     BOOST_AUTO_TEST_CASE(property_map_from_roadsegment) {
 
 
-        PropertyMapFromRoadProperty<string> idMap(map, "ID");
+        PropertyMapFromRoadProperty<string> idMap(map, "SID");
 
         auto edge = *b::edges(map.graph).first;
         BOOST_CHECK_EQUAL(map.roadsegment(edge).index, 0);
-        string id = map.roadsegment(edge).properties.get<string>("ID");
+        string id = map.roadsegment(edge).properties.get<string>("SID");
         BOOST_CHECK_EQUAL(get(idMap, edge), id);
 
         PropertyMapGen<double> weigthMap(map, [](Map::GraphTraits::edge_descriptor const &e, RoadSegment const &r) {
@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
     }
 
     BOOST_AUTO_TEST_CASE(shortest) {
-        map.visitRoadSegment([](RoadSegment &r) {
+        map.visit_roadsegment([](RoadSegment &r) {
             r.properties.put<double>("LENGTH", bg::length(r.geometry));
         });
         PropertyMapFromRoadProperty<double> edgeWeightMap(map, "LENGTH");
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_SUITE(roadnetworkkit)
     BOOST_AUTO_TEST_CASE( bj_road_query ){
         BOOST_REQUIRE(bjRoad.load("../data/map/bj-road-epsg3785", BJRoadEpsg3785IDPicker(), BJRoadEpsg3785CrossIDChecker()));
         Point p = bjRoad.cross(104439).geometry;
-        vector<int> ret = bjRoad.queryCross(p, 818.214);
+        vector<int> ret = bjRoad.query_cross(p, 818.214);
         set<int> returnSet(begin(ret), end(ret));
         set<int> correct{104441, 104439, 104440};
         BOOST_CHECK_EQUAL_COLLECTIONS(begin(returnSet), end(returnSet), begin(correct), end(correct));

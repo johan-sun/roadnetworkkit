@@ -14,13 +14,14 @@ add_library(roadnetworkkit STATIC
     src/gps.cpp
     src/ivmm/ivmm.cpp
     src/time_estimate.cpp
-    src/path-restore/HighLevelMap.cpp
+    src/path-restore/highlevelmap.cpp
 )
 
 target_link_libraries(roadnetworkkit
     shp
     mysqlclient
     mysqlpp
+    ${Boost_DATE_TIME_LIBRARY}
 )
 
 add_executable(test_
@@ -51,11 +52,11 @@ target_link_libraries(testroadmap
 )
 
 
-add_executable(mapMatch
-    src/map-match/mapMatch.cpp
+add_executable(map_match
+    src/map-match/map_match.cpp
 )
 
-target_link_libraries(mapMatch
+target_link_libraries(map_match
     roadnetworkkit
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -64,11 +65,11 @@ target_link_libraries(mapMatch
 )
 
 
-add_executable(timedPathDraw
+add_executable(timed_path_draw
     src/tools/trajToShp.cpp
 )
 
-target_link_libraries(timedPathDraw
+target_link_libraries(timed_path_draw
     roadnetworkkit
 )
 
@@ -79,13 +80,11 @@ add_executable(t-driver-statistics
 target_link_libraries(t-driver-statistics
     roadnetworkkit
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
-)
-
-add_executable(drawAllCrossInfo
-    src/T-driver/drawAllCrossInfo.cpp
-)
-target_link_libraries(drawAllCrossInfo
-    roadnetworkkit
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_DATE_TIME_LIBRARY}
+    mysqlpp
+    mysqlclient
 )
 
 add_executable(visualEdge
@@ -96,6 +95,9 @@ target_link_libraries(visualEdge
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_DATE_TIME_LIBRARY}
+    mysqlpp
+    mysqlclient
 )
 
 add_executable(vecluster
@@ -129,7 +131,55 @@ target_link_libraries(testhmap
     roadnetworkkit
     ${Boost_SYSTEM_LIBRARY}
 )
-install(TARGETS mapMatch timedPathDraw t-driver-statistics drawAllCrossInfo visualEdge vecluster
+
+add_executable(expmain
+    src/experiment/main.cpp
+    src/experiment/com.cpp
+)
+target_link_libraries(expmain
+    mysqlpp
+    mysqlclient
+    roadnetworkkit
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+)
+add_executable(foot_graph_gen
+    src/experiment/foot_graph_gen.cpp
+    src/experiment/com.cpp
+)
+target_link_libraries(foot_graph_gen
+    mysqlpp
+    mysqlclient
+    roadnetworkkit
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+)
+
+add_executable(ivmm_speed_test
+    src/experiment/ivmm_speed_test.cpp
+)
+
+target_link_libraries(ivmm_speed_test
+    ${Boost_SYSTEM_LIBRARY}
+    roadnetworkkit
+)
+
+add_executable(turn_stat
+    src/experiment/turn_stat.cpp
+    src/experiment/com.cpp
+)
+
+target_link_libraries(turn_stat
+    roadnetworkkit
+    mysqlpp
+    mysqlclient
+    ${Boost_SYSTEM_LIBRARY}
+)
+install(TARGETS map_match timed_path_draw t-driver-statistics visualEdge vecluster expmain foot_graph_gen ivmm_speed_test turn_stat
     RUNTIME DESTINATION workspace
 )
 

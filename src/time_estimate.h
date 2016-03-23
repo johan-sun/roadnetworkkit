@@ -4,6 +4,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <mysql++.h>
 #include "gps.h"
 #include "roadmap.h"
 //}}}
@@ -16,22 +17,22 @@ typedef std::pair<int, boost::posix_time::ptime> TimedCrossIndex;
 ///\param paths ivmm 生成的path向量
 ///\param logRange 只估计[first, second)区间的GPS数据
 ///\param 对应的道路地图
-std::vector<TimedCrossIndex> estimateTime(
+std::vector<TimedCrossIndex> estimate_time(
     std::vector<GpsPoint> const& log,
     std::vector<Path> const& paths,
     std::pair<int, int> const& logRange,
     RoadMap const& map);
 
 ///\brief 估计时间,使用全部GPS点的版本
-inline std::vector<TimedCrossIndex> estimateTime(
+inline std::vector<TimedCrossIndex> estimate_time(
     std::vector<GpsPoint> const& log,
     std::vector<Path> const& paths,
     RoadMap const& map){
-    return estimateTime(log, paths, {0, log.size()}, map);
+    return estimate_time(log, paths, {0, log.size()}, map);
 }
 
-std::vector<TimedCrossIndex> loadTimedPathFromFile(std::string const& file);
-
+std::vector<TimedCrossIndex> load_timed_path_from_file(std::string const& file);
+std::vector<TimedCrossIndex> load_timed_path_from_DB(mysqlpp::Connection& con, int metaID);
 
 
 #endif  /*TIME_ESTIMATE_H*/

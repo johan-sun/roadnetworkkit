@@ -11,7 +11,7 @@
 
 /// \brief 从string读取geometry
 template<typename Geometry>
-Geometry fromWKT(std::string const& wkt){
+Geometry from_wkt(std::string const& wkt){
     Geometry g;
     boost::geometry::read_wkt(wkt, g);
     return g;
@@ -26,7 +26,7 @@ inline Box range_box(Point const& center, double r){
     return { a, b };
 }
 template<typename P, typename T>
-Point projectPoint(P c, T t){
+Point project_point(P c, T t){
     Point prj;
     bg::convert(bg::distance(c, t, bg::strategy::distance::projected_point_return_point<>()).to_pair().second, prj);
     return prj;

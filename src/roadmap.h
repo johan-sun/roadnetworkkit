@@ -22,8 +22,8 @@ struct ProjectPoint{
 
 BOOST_GEOMETRY_REGISTER_POINT_2D_GET_SET(ProjectPoint, double, bg::cs::cartesian, geometry.x, geometry.y, geometry.x, geometry.y);
 
-ProjectPoint makeProjectPoint(Point const& point, RoadSegment const& r);
-inline ProjectPoint makeProjectPointForCross(Cross const& c){
+ProjectPoint make_project_point(Point const& point, RoadSegment const& r);
+inline ProjectPoint make_project_point_for_cross(Cross const& c){
     ProjectPoint p;
     p.type = ProjectPoint::OnCross;
     p.geometry = c.geometry;
@@ -33,40 +33,41 @@ inline ProjectPoint makeProjectPointForCross(Cross const& c){
 }
 
 template<typename P>
-ProjectPoint makeProjectPoint(P const& point, RoadSegment const& r){
+ProjectPoint make_project_point(P const& point, RoadSegment const& r){
     Point p;
     bg::convert(point, p);
-    return makeProjectPoint(p, r);
+    return make_project_point(p, r);
 }
 
 struct PartOfRoad{
     double length;
     ProjectPoint start;
     ProjectPoint end;
-    int roadsegmentIndex;
+    int roadsegment_index;
 };
 
-PartOfRoad makePartOfRoad(Point const& start, Point const& end, RoadSegment const& r);
+PartOfRoad make_part_of_road(Point const& start, Point const& end, RoadSegment const& r);
 template<typename P1, typename P2>
-PartOfRoad makePartOfRoad(P1 const& start, P2 const& end, RoadSegment const& r){
+PartOfRoad make_part_of_road(P1 const& start, P2 const& end, RoadSegment const& r){
     Point s;
     Point e;
     bg::convert(start, s);
     bg::convert(end, e);
-    return makePartOfRoad(s, e, r);
+    return make_part_of_road(s, e, r);
 }
+
 Linestring geometry(PartOfRoad const& pr, RoadSegment const& r);
 
 struct ARoadSegment{
-    int startCross;
-    int endCross;
-    int roadsegmentIndex;
+    int start_cross;
+    int end_cross;
+    int roadsegment_index;
     double length;
 };
 
 struct Path{
     std::list<boost::variant<ARoadSegment,PartOfRoad, ProjectPoint> > entities;
-    double totalLength()const;
+    double total_length()const;
     inline bool valid()const{
         return !entities.empty();
     }
@@ -79,7 +80,7 @@ public:
         AStar
     };
 
-    RoadMap():edgeWeightMap(*this, "GEO_LENGTH"),shortestPathStrategy(AStar){}
+    RoadMap():edge_weight_map(*this, "GEO_LENGTH"),shortest_path_strategy(AStar){}
 
     template<typename Picker = BJRoadEpsg3785IDPicker, typename Checker = BJRoadEpsg3785CrossIDChecker>
     bool load(std::string const& shpFile, Picker picker = Picker(), Checker checker = Checker()){
@@ -88,40 +89,47 @@ public:
             return false;
         }
 
-        buildGraph();
-        visitRoadSegment([](RoadSegment& road){
+        build_graph();
+        visit_roadsegment([](RoadSegment& road){
             double d = bg::length(road.geometry);
             road.properties.put("GEO_LENGTH", d);
+            road.properties.put("ID", road.index);
         });
+        visit_cross([](Cross & c){
+            c.properties.put("ID", c.index);
+        });
+        map_cross_property<int>("ID");
+        map_cross_property<std::string>("SID");
+        map_roadsegment_property<int>("ID");
+        map_roadsegment_property<std::string>("SID");
         return true;
     }
 
     ///\brief 范围查询路口
     ///\ret 返回路口索引按照距离查询点距离大小排序
-    std::vector<int> queryCross(Point const& p, double radious)const;
+    std::vector<int> query_cross(Point const& p, double radious)const;
 
     ///\brief 范围查询道路
     ///\ret 返回道路索引按照距离查询点距离大小排序
-    std::vector<int> queryRoad(Point const& p, double radious)const;
+    std::vector<int> query_road(Point const& p, double radious)const;
 
-    inline Path shortestPath(int crossA, int crossB)const{
-        if ( shortestPathStrategy == Dijkstra ){
-            return shortestPathDijkstra(crossA, crossB);
+    inline Path shortest_path(int crossA, int crossB)const{
+        if ( shortest_path_strategy == Dijkstra ){
+            return shortest_path_Dijkstra(crossA, crossB);
         }else{
-            return shortestPathAStar(crossA, crossB);
+            return shortest_path_Astar(crossA, crossB);
         }
     }
-    Path shortestPath(ProjectPoint const& start, ProjectPoint const& end)const;
-    Path shortestPath(ProjectPoint const& start, int end)const;
-    Path shortestPath(int start, ProjectPoint const& end)const;
+    Path shortest_path(ProjectPoint const& start, ProjectPoint const& end)const;
+    Path shortest_path(ProjectPoint const& start, int end)const;
+    Path shortest_path(int start, ProjectPoint const& end)const;
 
-    Path shortestPathAStar(int crossA, int crossB)const;
-    Path shortestPathDijkstra(int crossA, int crossB)const;
-    Path shortestPathBGLDijkstra(int crossA, int crossB)const;
-    ProjectPoint nearestProject(Point const& p)const;
+    Path shortest_path_Astar(int crossA, int crossB)const;
+    Path shortest_path_Dijkstra(int crossA, int crossB)const;
+    ProjectPoint nearest_project(Point const& p)const;
 
-    PropertyMapFromRoadProperty<double> edgeWeightMap;
-    ShortestPathStrategy shortestPathStrategy;
+    PropertyMapFromRoadProperty<double> edge_weight_map;
+    ShortestPathStrategy shortest_path_strategy;
 };
 
 Linestring geometry(Path const& path, RoadMap const& m);

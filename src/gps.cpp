@@ -3,7 +3,7 @@
 #include "gps.h"
 using namespace std;
 
-vector<GpsPoint> loadFromFile(std::string const & name){
+vector<GpsPoint> load_from_file(std::string const & name){
     vector<GpsPoint> ret;
     ifstream ifs(name);
     ifs.imbue(locale(ifs.getloc(), new boost::posix_time::time_input_facet("%Y-%m-%d %H:%M:%S")));

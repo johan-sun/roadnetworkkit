@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include "roadmap.h"
+#include  <boost/optional.hpp>
 //}}}
 
 
@@ -19,21 +20,22 @@ struct Candidate{
 
 ///\brief IVMM算法参数
 struct IVMMParam{
-    double candidateQueryRadious;
-    int candidateLimit;
-    double projectDistMean;
-    double projectDistStddev;
+    double candidate_query_radious;
+    int candidate_limit;
+    double project_dist_mean;
+    double project_dist_stddev;
     double beta;
     int window;
+    static boost::optional<IVMMParam> load_config(std::string const& filename);
 };
 
 ///\brief 计算静态矩阵m[i][j]对应值的具体参数
 struct Detail{
-    double weightSpeed;///< 两候选点之间最短路径的道路加权速度
-    double avgSpeed;///< 平均估计速度
-    double twoGpsDistance;///< 两个GPS点之间的直线距离
-    double pathLength;///< 最短路径长度
-    int timeInteval;///< 两个GPS的时间间隔
+    double weight_speed;///< 两候选点之间最短路径的道路加权速度
+    double avg_speed;///< 平均估计速度
+    double two_gps_distance;///< 两个GPS点之间的直线距离
+    double path_length;///< 最短路径长度
+    int time_inteval;///< 两个GPS的时间间隔
 
     double v;///< 论文中的v
     double ft;///< 论文中的ft
@@ -44,7 +46,7 @@ class IVMM{
 public:
     template<typename V> using VVector = std::vector<std::vector<V> >;
     template<typename V> using VVVector = std::vector<std::vector<std::vector<V> > >;
-    IVMM(RoadMap const* map, IVMMParam const& p):_map(map),param(p){}
+    IVMM(RoadMap const* map, IVMMParam const& p):map_(map),param(p){}
 
     VVector<Candidate>
         candidates(
@@ -61,19 +63,19 @@ public:
     VVVector<Detail>
         detail(std::vector<GpsPoint> const& log, VVVector<Path> const& paths)const;
 
-    double findSequence(
+    double find_sequence(
             std::vector<int>& seq,
             VVector<double> const& n,
             VVVector<Detail> const& vft,
             std::vector<GpsPoint> const& log,
             std::vector<double> const& w,
             VVector<Candidate> const& candidates,
-            int focusOnGps,
-            int mustPassCand,
-            int gpsBegin,
-            int gpsEnd)const;
+            int focus_on_gps,
+            int must_pass_cand,
+            int gps_begin,
+            int gps_end)const;
 
-    bool stMatch(std::vector<GpsPoint> const& log,
+    bool st_match(std::vector<GpsPoint> const& log,
             VVector<double> &n,
             VVVector<Detail>& details,
             VVVector<Path>& paths,
@@ -81,20 +83,20 @@ public:
             std::vector<int> & finalCand
         )const;
 
-    bool mapMatch(std::vector<GpsPoint> const& log,
+    bool map_match(std::vector<GpsPoint> const& log,
             VVector<double> &n,
             VVVector<Detail>& details,
             VVVector<Path>& paths,
             VVector<Candidate>& candidates,
             std::vector<int>& finalCand)const;
 
-    std::vector<Path> mapMatch(std::vector<GpsPoint> const& log)const;
+    std::vector<Path> map_match(std::vector<GpsPoint> const& log)const;
 
     void initW(std::vector<double>& w,
             std::vector<GpsPoint> const& log,
             int begin, int end, int focusOnGps)const;
 
-    void drawPathsToShp(
+    void draw_paths_to_shp(
             char const* output,
             std::vector<int> const& finalCand, 
             IVMM::VVVector<Path> const& paths,
@@ -106,17 +108,16 @@ public:
     ///\param[out] ranges 有效的路径区间
     ///\ret 匹配路径，匹配路径中间可能断代，用ranges指出
     std::vector<Path> 
-        mapMatchSafe(std::vector<GpsPoint> const& log, std::vector<std::pair<int, int> >& ranges)const;
+        map_match_s(std::vector<GpsPoint> const& log, std::vector<std::pair<int, int> >& ranges)const;
     IVMMParam param;
     inline RoadMap const& map()const{
-        return *_map;
+        return *map_;
     }
 
 private:
-    RoadMap const* _map;
+    RoadMap const* map_;
 };
 
-
-double weightSpeed(Path const& path, RoadMap const& map);
+double weight_speed(Path const& path, RoadMap const& map);
 
 #endif  /*IVMM_H*/

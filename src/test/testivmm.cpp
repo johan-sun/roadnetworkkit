@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
 
     RoadMap bjRoad;
 
-    void drawCandidatesAndN(char const* output, IVMM::VVector<Candidate> const& cand, IVMM::VVector<double> const& n){
+    void draw_candidates_and_n(char const* output, IVMM::VVector<Candidate> const& cand, IVMM::VVector<double> const& n){
         SHPHandle shp = SHPCreate(output, SHPT_POINT);
         DBFHandle dbf = DBFCreate(output);
         DBFAddField(dbf, "GPSID", FTInteger, 10, 0);
@@ -82,12 +82,12 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
                     DBFWriteIntegerAttribute(dbf, id, 2, c1);
                     DBFWriteIntegerAttribute(dbf, id, 3, g+1);
                     DBFWriteIntegerAttribute(dbf, id, 4, c2);
-                    DBFWriteDoubleAttribute(dbf, id, 5, detail.pathLength);
-                    DBFWriteDoubleAttribute(dbf, id, 6, detail.twoGpsDistance);
+                    DBFWriteDoubleAttribute(dbf, id, 5, detail.path_length);
+                    DBFWriteDoubleAttribute(dbf, id, 6, detail.two_gps_distance);
                     DBFWriteDoubleAttribute(dbf, id, 7, detail.v);
-                    DBFWriteIntegerAttribute(dbf, id, 8, detail.timeInteval);
-                    DBFWriteDoubleAttribute(dbf, id, 9, detail.avgSpeed);
-                    DBFWriteDoubleAttribute(dbf, id, 10, detail.weightSpeed);
+                    DBFWriteIntegerAttribute(dbf, id, 8, detail.time_inteval);
+                    DBFWriteDoubleAttribute(dbf, id, 9, detail.avg_speed);
+                    DBFWriteDoubleAttribute(dbf, id, 10, detail.weight_speed);
                     DBFWriteDoubleAttribute(dbf, id, 11, detail.ft);
                     DBFWriteDoubleAttribute(dbf, id, 12, detail.v * detail.ft * n[g+1][c2]);
                     DBFWriteDoubleAttribute(dbf, id, 13, n[g+1][c2]);
@@ -137,12 +137,12 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
                     DBFWriteIntegerAttribute(dbf, id, 2, c1);
                     DBFWriteIntegerAttribute(dbf, id, 3, g+1);
                     DBFWriteIntegerAttribute(dbf, id, 4, c2);
-                    DBFWriteDoubleAttribute(dbf, id, 5, detail.pathLength);
-                    DBFWriteDoubleAttribute(dbf, id, 6, detail.twoGpsDistance);
+                    DBFWriteDoubleAttribute(dbf, id, 5, detail.path_length);
+                    DBFWriteDoubleAttribute(dbf, id, 6, detail.two_gps_distance);
                     DBFWriteDoubleAttribute(dbf, id, 7, detail.v);
-                    DBFWriteIntegerAttribute(dbf, id, 8, detail.timeInteval);
-                    DBFWriteDoubleAttribute(dbf, id, 9, detail.avgSpeed);
-                    DBFWriteDoubleAttribute(dbf, id, 10, detail.weightSpeed);
+                    DBFWriteIntegerAttribute(dbf, id, 8, detail.time_inteval);
+                    DBFWriteDoubleAttribute(dbf, id, 9, detail.avg_speed);
+                    DBFWriteDoubleAttribute(dbf, id, 10, detail.weight_speed);
                     DBFWriteDoubleAttribute(dbf, id, 11, detail.ft);
                     DBFWriteDoubleAttribute(dbf, id, 12, detail.v * detail.ft * n[g+1][c2]);
                     DBFWriteDoubleAttribute(dbf, id, 13, n[g+1][c2]);
@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
         SHPClose(shp);
     }
 
-    void drawTimedCross(char const* output, vector<TimedCrossIndex> const& timedPath){
+    void draw_timed_cross(char const* output, vector<TimedCrossIndex> const& timedPath){
         SHPHandle shp = SHPCreate(output, SHPT_POINT);
         DBFHandle dbf = DBFCreate(output);
         DBFAddField(dbf, "INDEX", FTInteger, 10, 0);
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
         DBFClose(dbf);
     }
 
-    void drawSegmentCost(char const* output, vector<TimedCrossIndex> const& timedPath){
+    void draw_segment_crost(char const* output, vector<TimedCrossIndex> const& timedPath){
         SHPHandle shp = SHPCreate(output, SHPT_ARC);
         DBFHandle dbf = DBFCreate(output);
         DBFAddField(dbf, "COST", FTInteger, 10,0);
@@ -196,18 +196,18 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
     BOOST_AUTO_TEST_CASE(ivmm) {
         BOOST_REQUIRE(bjRoad.load("../data/map/bj-road-epsg3785", BJRoadEpsg3785IDPicker(), BJRoadEpsg3785CrossIDChecker()));
         IVMMParam param;
-        param.candidateLimit = 5;
-        param.candidateQueryRadious = 100;
-        param.projectDistMean = 5;
-        param.projectDistStddev = 20;
+        param.candidate_limit = 5;
+        param.candidate_query_radious = 100;
+        param.project_dist_mean = 5;
+        param.project_dist_stddev = 20;
         param.window = 50;
         param.beta = 5000;
         IVMM ivmm(&bjRoad, param);
 
-        vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/96894/96894-0.txt");
-        //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/21004/21004-0.txt");
-        //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/102734/102734-0.txt");
-        //vector<GpsPoint> log = loadFromFile("../data/bj-gps-after-prepare/20121101/100064/100064-4.txt");
+        vector<GpsPoint> log = load_from_file("../data/bj-gps-after-prepare/20121101/96894/96894-0.txt");
+        //vector<GpsPoint> log = load_from_file("../data/bj-gps-after-prepare/20121101/21004/21004-0.txt");
+        //vector<GpsPoint> log = load_from_file("../data/bj-gps-after-prepare/20121101/102734/102734-0.txt");
+        //vector<GpsPoint> log = load_from_file("../data/bj-gps-after-prepare/20121101/100064/100064-4.txt");
 
         //IVMM::VVector<Candidate> candidates;
         //IVMM::VVector<double> n;
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
         //IVMM::VVVector<Path> paths;
         //vector<int> finalCand;
         //cout << ivmm.mapMatch(log, n, details, paths, candidates, finalCand) << endl;
-        //drawCandidatesAndN("CN", candidates, n);
+        //draw_candidates_and_n("CN", candidates, n);
         //drawPaths("PATH", paths, details, n);
         //drawPaths("FINAL_PATH_IVMM", finalCand, paths, details, n);
         //vector<Path> finalPath;
@@ -225,21 +225,21 @@ BOOST_AUTO_TEST_SUITE(ivmmtest)
         //    finalPath.push_back(paths[i][srcBest][destBest]);
         //}
         //paths.clear();
-        //vector<TimedCrossIndex> timedPath = estimateTime(log, finalPath, bjRoad);
-        //drawTimedCross("TIMED_CROSS", timedPath);
-        //drawSegmentCost("SEGMENT_COST", timedPath);
+        //vector<TimedCrossIndex> timedPath = estimate_time(log, finalPath, bjRoad);
+        //draw_timed_cross("TIMED_CROSS", timedPath);
+        //draw_segment_crost("SEGMENT_COST", timedPath);
 
         vector<pair<int, int> > ranges;
-        auto result = ivmm.mapMatchSafe(log, ranges);
+        auto result = ivmm.map_match_s(log, ranges);
         cout << ranges.size() << endl;
         for(auto& r : ranges){
             cout << r.second - r.first << endl;
         }
         for(int i = 0; i < ranges.size(); ++i){
-            vector<TimedCrossIndex> timedPath = estimateTime(log, result, ranges[i], bjRoad);
+            vector<TimedCrossIndex> timedPath = estimate_time(log, result, ranges[i], bjRoad);
             if ( !timedPath.empty()){
-                drawTimedCross(("TIMED_CROSS_" + to_string(i)).c_str(), timedPath);
-                drawSegmentCost(("SEGMENT_COST_" + to_string(i)).c_str(), timedPath);
+                draw_timed_cross(("TIMED_CROSS_" + to_string(i)).c_str(), timedPath);
+                draw_segment_crost(("SEGMENT_COST_" + to_string(i)).c_str(), timedPath);
             }
         }
     }

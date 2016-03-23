@@ -28,7 +28,7 @@ BOOST_GEOMETRY_REGISTER_POINT_2D_GET_SET(
 
 BOOST_GEOMETRY_REGISTER_LINESTRING(std::vector<GpsPoint>);
 
-std::vector<GpsPoint> loadFromFile(std::string const&);
+std::vector<GpsPoint> load_from_file(std::string const&);
 
 #endif  /*GPS_H*/
 
