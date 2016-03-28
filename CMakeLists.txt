@@ -22,6 +22,7 @@ target_link_libraries(roadnetworkkit
     mysqlclient
     mysqlpp
     ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
 )
 
 add_executable(test_
