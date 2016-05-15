@@ -3,6 +3,7 @@
 #include <vector>
 #include <fstream>
 #include <istream>
+#include <numeric>
 #include <functional>
 #include <boost/range/algorithm.hpp>
 #include <string>
